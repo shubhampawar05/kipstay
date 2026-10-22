@@ -1,17 +1,19 @@
 # Kipstay
 
 An original, full-stack accommodation marketplace (search, listings, bookings, wishlists, hosting) whose UX was informed by an
-evidence-based investigation of Airbnb's public guest flows. See [`REVERSE_ENGINEERING.md`](REVERSE_ENGINEERING.md).
+evidence-based investigation of Airbnb's public guest flows. See [`REVERSE_ENGINEERING.md`](REVERSE_ENGINEERING.md) for
+round 1 (structure and behaviour) and [`REFERENCE_MATCH.md`](REFERENCE_MATCH.md) for round 2 (measured layout, styles and motion).
 
-Kipstay uses its own name, logo, teal palette, copy and artwork. No Airbnb assets, code or styles are reused, and all
-listings, hosts and reviews are fictional seed data.
+Kipstay uses its own name, logo, teal brand colour, typeface, copy and artwork. Layout dimensions, neutral greys, radii,
+shadows and animation timings were measured from the reference and reproduced. No Airbnb assets, images or code are
+reused, and all listings, hosts and reviews are fictional seed data.
 
 ## Stack
 
 | Concern | Choice |
 |---|---|
 | Framework | Next.js 16 App Router, React 19, TypeScript |
-| UI | Tailwind CSS v4, shadcn/ui (Base UI primitives), lucide icons, sonner toasts |
+| UI | Tailwind CSS v4, shadcn/ui (Base UI primitives), lucide icons, sonner toasts, Leaflet + OpenStreetMap (maps) |
 | Data | PostgreSQL 16 + Prisma 6 |
 | Auth | Email + password (bcrypt, cost 12) with database-backed sessions in an `httpOnly` cookie |
 | Validation | Zod on every server action, route handler and URL parameter |
@@ -110,6 +112,21 @@ upcoming trip and one saved listing, and the hosts own the 26 seeded listings.
 - **Mobile:** bottom tab bar (Explore, Wishlists, Trips, Host, Profile or Log in), search sheet, and a sticky reserve bar.
 - Security headers (`nosniff`, `DENY` framing, referrer and permissions policies).
 
+### Round 2: matching the reference (see REFERENCE_MATCH.md)
+
+- **Header:** collapses on scroll into a compact pill that re-expands the full search. The 66 px search pill has
+  measured panel styling.
+- **Home:** carousel rows fill 7 cards at 1440 px, including "Available in {city} this weekend" with live availability.
+- **Results:** chip toolbar plus a **map** with price pins (Leaflet + OpenStreetMap, no API key). The **Filters
+  dialog** has a price histogram, a two-thumb slider and a live result count.
+- **Listing page:** **photo tour** and fullscreen viewer, sticky **section sub-nav**, **all-reviews dialog** with
+  rating distribution, "Where you'll be" map, Share (Web Share or copy link), and "Things to know" dialogs.
+- **Host profiles:** a public page at `/users/[id]`.
+- **Account settings:** edit name and bio; change password, which signs out every other session.
+- **Footer:** "Inspiration for future getaways" tabs built from database destinations.
+- **Motion:** measured easing (`cubic-bezier(.2,0,0,1)`), press feedback (heart 1.08/0.92, arrows 30/28 and 26/28),
+  shimmer skeletons (1.3 s, staggered 100 ms), sheet and dialog entrances, all disabled under `prefers-reduced-motion`.
+
 ## Project layout
 
 ```
@@ -122,14 +139,14 @@ tests/unit         pricing/validation specs + a DB integration test for the over
 tests/e2e          search, auth, booking, wishlist, host, mobile
 ```
 
-## Verification status (2026-10-22)
+## Verification status (2026-10-22, branch `feature/reference-match`)
 
 | Check | Result |
 |---|---|
 | `npm run lint` | ✅ no warnings or errors |
 | `npm run typecheck` | ✅ no errors |
 | `npm run build` | ✅ succeeds (all routes dynamic) |
-| `npx playwright test` | ✅ 24 passed, 2 skipped (26 tests: 8 unit/integration, 14 desktop e2e, 2 mobile e2e; the 2 skips are the mobile specs inside the desktop project) |
+| `npx playwright test` | ✅ 29 passed, 2 skipped (31 tests: 8 unit/integration, 21 desktop e2e, 2 mobile e2e; the 2 skips are the mobile specs inside the desktop project) |
 
 The e2e suite covers:
 - **Search:** autocomplete through results to a listing; date-aware availability and discounts; filters; empty state; capacity; 404.
@@ -139,16 +156,19 @@ The e2e suite covers:
 - **Wishlist:** logged-out redirect; save, persist and remove.
 - **Hosting:** create (with server validation errors), search visibility, edit, non-owner 404, unpublish.
 - **Mobile:** tab bar and search sheet; reserve bar.
+- **Round 2 features:** profile edit; password change signing out other sessions; reviews dialog; photo tour and viewer;
+  host profile; Filters dialog live count; map price pins; header collapse and re-expand.
 
 ## Not implemented / known limitations
 
 - **Real payments:** only the mock provider exists (`PAYMENT_PROVIDER=mock`). There are no refunds, payouts or invoices.
   The listed cancellation policy is informational; cancellations are always allowed before check-in.
-- **Map view:** the reference uses Google Maps with price pins. No map key is configured, and a fake map would be misleading,
-  so coordinates are stored but no map is shown.
+- **Maps** use OpenStreetMap's public tiles, which suit development and light use only (see the
+  [tile policy](https://operations.osmfoundation.org/policies/tiles/)). Set `NEXT_PUBLIC_MAP_TILE_URL` to a tile provider
+  you're licensed for in production. There's no clustering or search-as-you-move-the-map.
 - **Photo uploads:** hosts paste image URLs (or use the bundled artwork). There's no file storage integration.
 - **Not built:** messaging between guests and hosts, host calendar blocking, multiple named wishlists, social login,
-  email verification, password reset, profile editing.
+  email verification, password reset, "Flexible dates" search, per-category review ratings, Experiences/Services verticals.
 - **Rate limiting** is in-memory per server instance; use a shared store (for example Redis) for multi-instance deployments.
 - **Currency:** USD only. Date math is calendar-day based (UTC); the date picker renders client-side to use the viewer's local "today".
 - **E2E data:** the e2e suite writes test users and bookings to the configured database. Run `npm run db:seed` to reset.

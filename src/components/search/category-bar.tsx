@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { Building2, Mountain, Palmtree, Sailboat, Sun, Trees, Waves, type LucideIcon } from "lucide-react";
+import { Building2, LayoutGrid, Mountain, Palmtree, Sailboat, Sun, Trees, Waves, type LucideIcon } from "lucide-react";
 import { CATEGORIES } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
-const ICONS: Record<string, LucideIcon> = { Waves, Mountain, Building2, Trees, Sailboat, Sun, Palmtree };
+const ICONS: Record<string, LucideIcon> = { LayoutGrid, Waves, Mountain, Building2, Trees, Sailboat, Sun, Palmtree };
 
 /** Horizontally scrolling category tabs. `params` are preserved when switching category. */
 export function CategoryBar({ active, params = {} }: { active?: string; params?: Record<string, string | string[]> }) {
@@ -18,22 +18,28 @@ export function CategoryBar({ active, params = {} }: { active?: string; params?:
     return s ? `/s?${s}` : "/s";
   }
 
+  // Desktop: underlined icon tabs (14/18 medium, 2px underline, ~35px gaps as measured on the reference tab row).
+  // Phones: pill chips, as on the reference's mobile home.
+  const items = [{ value: undefined, label: "All", icon: "LayoutGrid" }, ...CATEGORIES];
   return (
-    <nav aria-label="Categories" className="scrollbar-none -mx-4 flex gap-8 overflow-x-auto px-4 md:mx-0 md:px-0">
-      {CATEGORIES.map(({ value, label, icon }) => {
+    <nav aria-label="Categories" className="scrollbar-none -mx-6 flex gap-2 overflow-x-auto px-6 py-3 min-[744px]:mx-0 min-[744px]:gap-8 min-[744px]:px-0 min-[744px]:py-0">
+      {items.map(({ value, label, icon }) => {
         const Icon = ICONS[icon];
-        const isActive = active === value;
+        const isActive = value ? active === value : !active;
         return (
           <Link
-            key={value}
-            href={isActive ? href() : href(value)}
+            key={label}
+            href={value ? (isActive ? href() : href(value)) : href()}
             aria-current={isActive ? "page" : undefined}
             className={cn(
-              "flex shrink-0 flex-col items-center gap-2 border-b-2 pt-2 pb-3 text-xs font-medium transition-colors",
-              isActive ? "border-foreground text-foreground" : "border-transparent text-muted-foreground hover:border-muted-foreground/40 hover:text-foreground",
+              "group flex shrink-0 items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-[color,border-color,box-shadow,transform] duration-200 ease-standard active:scale-[0.97] focus-ring",
+              "min-[744px]:flex-col min-[744px]:gap-2 min-[744px]:rounded-none min-[744px]:border-0 min-[744px]:border-b-2 min-[744px]:px-0 min-[744px]:pt-3 min-[744px]:pb-2.5 min-[744px]:text-xs min-[744px]:active:scale-100",
+              isActive
+                ? "border-foreground bg-grey-100 text-foreground shadow-elev-1 min-[744px]:bg-transparent min-[744px]:shadow-none"
+                : "border-grey-400 text-muted-foreground hover:text-foreground min-[744px]:border-transparent min-[744px]:hover:border-grey-500",
             )}
           >
-            <Icon className="size-6" strokeWidth={1.6} aria-hidden />
+            <Icon className={cn("size-5 transition-opacity min-[744px]:size-6", isActive ? "opacity-100" : "opacity-70 group-hover:opacity-100")} strokeWidth={1.6} aria-hidden />
             {label}
           </Link>
         );

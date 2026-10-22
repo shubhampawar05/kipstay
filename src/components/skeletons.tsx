@@ -1,12 +1,11 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
-export function CardSkeleton() {
+export function CardSkeleton({ index = 0 }: { index?: number }) {
   return (
     <div aria-hidden>
-      <Skeleton className="aspect-[20/19] rounded-xl" />
-      <Skeleton className="mt-3 h-4 w-3/4" />
-      <Skeleton className="mt-2 h-4 w-1/2" />
-      <Skeleton className="mt-2 h-4 w-1/3" />
+      <Skeleton index={index} className="aspect-[20/19] rounded-[20px]" />
+      <Skeleton index={index} className="mt-3 h-3.5 w-3/4" />
+      <Skeleton index={index} className="mt-2 h-3.5 w-1/2" />
     </div>
   );
 }
@@ -15,7 +14,7 @@ export function GridSkeleton({ count = 8 }: { count?: number }) {
   return (
     <div role="status" aria-label="Loading stays" className="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {Array.from({ length: count }, (_, i) => (
-        <CardSkeleton key={i} />
+        <CardSkeleton key={i} index={i} />
       ))}
     </div>
   );

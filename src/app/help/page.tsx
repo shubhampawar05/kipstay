@@ -9,7 +9,7 @@ const pct = (r: number) => `${Math.round(r * 100)}%`;
 export default function HelpPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-10 px-4 py-10 md:px-6">
-      <h1 className="text-3xl font-semibold tracking-tight">Help & safety</h1>
+      <h1 className="text-[32px] leading-9 font-semibold">Help & safety</h1>
 
       <section id="about" className="scroll-mt-28 space-y-2">
         <h2 className="text-xl font-semibold">About Kipstay</h2>

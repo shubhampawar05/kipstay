@@ -46,7 +46,7 @@ export function ReserveForm({ request, total }: { request: Record<string, string
         </p>
       )}
 
-      <Button type="submit" size="lg" className="h-12 w-full rounded-xl text-base sm:w-auto sm:px-8" disabled={pending}>
+      <Button type="submit" variant="brand" size="xl" className="w-full rounded-lg sm:w-auto sm:px-8" disabled={pending}>
         {pending && <Loader2 className="animate-spin" />} Confirm and pay (mock)
       </Button>
     </form>

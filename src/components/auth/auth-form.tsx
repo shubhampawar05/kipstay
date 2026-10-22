@@ -38,7 +38,7 @@ function Field({
         required
         aria-invalid={!!error}
         aria-describedby={describedBy}
-        className="h-11"
+        className="h-14 rounded-lg border-grey-600 text-base"
       />
       {hint && !error && (
         <p id={`${name}-hint`} className="text-xs text-muted-foreground">
@@ -77,7 +77,7 @@ export function AuthForm({ mode, next }: { mode: "login" | "signup"; next: strin
           {e.form}
         </p>
       )}
-      <Button type="submit" size="lg" className="h-12 w-full rounded-xl text-base" disabled={pending}>
+      <Button type="submit" variant="brand" size="xl" className="w-full rounded-lg" disabled={pending}>
         {pending && <Loader2 className="animate-spin" />}
         {mode === "login" ? "Log in" : "Create account"}
       </Button>

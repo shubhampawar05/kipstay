@@ -59,17 +59,17 @@ async function TripsList({ userId }: { userId: string }) {
   ].filter((g) => g.items.length);
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8 md:px-6">
-      <h1 className="text-3xl font-semibold tracking-tight">Trips</h1>
+    <div className="page-gutter py-10">
+      <h1 className="text-[32px] leading-9 font-semibold">Trips</h1>
       {groups.map((g) => (
         <section key={g.title} className="mt-8" aria-labelledby={`trips-${g.title}`}>
           <h2 id={`trips-${g.title}`} className="mb-4 text-xl font-semibold">
             {g.title}
           </h2>
-          <ul className="grid gap-4 sm:grid-cols-2">
+          <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {g.items.map((b) => (
               <li key={b.id}>
-                <Link href={`/trips/${b.id}`} className="flex gap-4 rounded-2xl border p-3 transition-shadow hover:shadow-md" data-testid="trip-card">
+                <Link href={`/trips/${b.id}`} className="flex gap-4 rounded-2xl border border-grey-400 p-3 shadow-elev-1 transition-shadow duration-200 hover:shadow-elev-2 focus-ring" data-testid="trip-card">
                   <div className="relative size-24 shrink-0 overflow-hidden rounded-xl bg-muted">
                     <Image src={b.listing.images[0]} alt="" fill unoptimized className="object-cover" />
                   </div>

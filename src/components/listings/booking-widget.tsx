@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Loader2, Star } from "lucide-react";
+import { ChevronDown, Loader2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { DateRangeCalendar } from "@/components/search/date-range-calendar";
 import { GuestPicker, guestSummary } from "@/components/search/guest-picker";
 import { formatMoney } from "@/lib/pricing";
@@ -13,83 +13,86 @@ import { cn } from "@/lib/utils";
 import { PriceBreakdown } from "./price-breakdown";
 import { useStay } from "./stay-context";
 
-export function BookingWidget({ pricePerNight, rating, reviewCount }: { pricePerNight: number; rating: number; reviewCount: number }) {
+const reserveClass =
+  "bg-brand-gradient flex h-12 w-full items-center justify-center rounded-lg text-base font-semibold text-white transition-transform duration-200 active:scale-[0.98] focus-ring disabled:opacity-60";
+
+/**
+ * Booking card measured on the reference: radius 12, 1px #DDD border, elevation 0 6px 16px rgba(0,0,0,.12),
+ * 24px padding; outlined date/guest box (radius 8, #B0B0B0) with 10px uppercase labels; 48px gradient Reserve.
+ */
+export function BookingWidget({ pricePerNight, freeCancellationNote }: { pricePerNight: number; freeCancellationNote?: string }) {
   const { range, setRange, guests, setGuests, isDisabled, listing, quote: state, reserveHref } = useStay();
   const [panel, setPanel] = useState<"dates" | "guests" | null>(null);
 
   return (
-    <div className="rounded-2xl border p-6 shadow-xl" data-testid="booking-widget">
-      <div className="flex items-baseline justify-between gap-2">
-        <p>
-          {state.status === "ok" ? (
-            <>
-              <span className="text-2xl font-semibold">{formatMoney(state.quote.total)}</span>{" "}
-              <span className="text-muted-foreground">
-                for {state.quote.nights} night{state.quote.nights === 1 ? "" : "s"}
-              </span>
-            </>
-          ) : (
-            <>
-              <span className="text-2xl font-semibold">{formatMoney(pricePerNight)}</span> <span className="text-muted-foreground">night</span>
-            </>
-          )}
-        </p>
-        {reviewCount > 0 && (
-          <span className="flex items-center gap-1 text-sm">
-            <Star className="size-3.5 fill-current" aria-hidden /> {rating.toFixed(2)}
-          </span>
+    <div id="booking-widget" className="rounded-xl border border-grey-400 p-6 shadow-elev-2" data-testid="booking-widget">
+      <p className="text-base">
+        {state.status === "ok" ? (
+          <>
+            <span className="text-[22px] leading-[26px] font-semibold underline underline-offset-2">{formatMoney(state.quote.total)}</span> for{" "}
+            {state.quote.nights} night{state.quote.nights === 1 ? "" : "s"}
+          </>
+        ) : (
+          <>
+            <span className="text-[22px] leading-[26px] font-semibold">{formatMoney(pricePerNight)}</span> night
+          </>
         )}
-      </div>
+      </p>
 
-      <div className="mt-5 overflow-hidden rounded-xl border">
+      <div className="mt-6 overflow-hidden rounded-lg border border-grey-600">
         <Popover open={panel === "dates"} onOpenChange={(o) => setPanel(o ? "dates" : null)}>
-          <PopoverTrigger className="grid w-full grid-cols-2 text-left" aria-label="Change dates">
-            <span className="border-r px-3 py-2.5">
-              <span className="block text-[10px] font-bold uppercase">Check-in</span>
-              <span className={cn("text-sm", !range?.from && "text-muted-foreground")}>{range?.from ? shortDate(range.from) : "Add date"}</span>
+          <PopoverTrigger className="grid w-full grid-cols-2 text-left outline-none" aria-label="Change dates">
+            <span className={cn("rounded-tl-lg border-r border-grey-600 px-3 pt-2.5 pb-2", panel === "dates" && "shadow-[inset_0_0_0_2px_#222]")}>
+              <span className="block text-[10px] leading-3 font-bold tracking-wide uppercase">Check-in</span>
+              <span className={cn("text-sm", !range?.from && "text-muted-foreground")}>{range?.from ? range.from.toLocaleDateString("en-US") : "Add date"}</span>
             </span>
-            <span className="px-3 py-2.5">
-              <span className="block text-[10px] font-bold uppercase">Checkout</span>
-              <span className={cn("text-sm", !range?.to && "text-muted-foreground")}>{range?.to ? shortDate(range.to) : "Add date"}</span>
+            <span className="px-3 pt-2.5 pb-2">
+              <span className="block text-[10px] leading-3 font-bold tracking-wide uppercase">Checkout</span>
+              <span className={cn("text-sm", !range?.to && "text-muted-foreground")}>{range?.to ? range.to.toLocaleDateString("en-US") : "Add date"}</span>
             </span>
           </PopoverTrigger>
-          <PopoverContent align="end" className="w-auto rounded-2xl p-4">
-            <DateRangeCalendar value={range} onChange={setRange} disabled={[isDisabled]} minNights={listing.minNights} autoFocus />
-            <div className="flex justify-between border-t pt-3">
-              <Button variant="ghost" size="sm" onClick={() => setRange(undefined)}>
+          <PopoverContent align="end" sideOffset={-56} className="kip-panel w-auto rounded-2xl border-0 p-8 shadow-elev-4 ring-0">
+            <p className="text-[22px] leading-[26px] font-semibold">{range?.from && range.to ? `${shortDate(range.from)} – ${shortDate(range.to)}` : "Select dates"}</p>
+            <p className="mb-4 text-sm text-muted-foreground">{listing.minNights > 1 ? `Minimum stay: ${listing.minNights} nights` : "Add your travel dates for exact pricing"}</p>
+            <DateRangeCalendar value={range} onChange={setRange} disabled={[isDisabled]} minNights={listing.minNights} autoFocus strikeUnavailable />
+            <div className="mt-2 flex justify-end gap-2">
+              <Button variant="link" className="font-semibold text-foreground underline" onClick={() => setRange(undefined)}>
                 Clear dates
               </Button>
-              <Button size="sm" onClick={() => setPanel(null)}>
+              <Button variant="dark" size="lg" className="h-10 rounded-lg px-5" onClick={() => setPanel(null)}>
                 Close
               </Button>
             </div>
           </PopoverContent>
         </Popover>
         <Popover open={panel === "guests"} onOpenChange={(o) => setPanel(o ? "guests" : null)}>
-          <PopoverTrigger className="w-full border-t px-3 py-2.5 text-left" aria-label="Change guests">
-            <span className="block text-[10px] font-bold uppercase">Guests</span>
-            <span className="text-sm">{guestSummary(guests) ?? "1 guest"}</span>
+          <PopoverTrigger
+            className={cn("flex w-full items-center justify-between border-t border-grey-600 px-3 pt-2.5 pb-2 text-left outline-none", panel === "guests" && "rounded-b-lg shadow-[inset_0_0_0_2px_#222]")}
+            aria-label="Change guests"
+          >
+            <span>
+              <span className="block text-[10px] leading-3 font-bold tracking-wide uppercase">Guests</span>
+              <span className="text-sm">{guestSummary(guests) ?? "1 guest"}</span>
+            </span>
+            <ChevronDown className={cn("size-5 transition-transform duration-200", panel === "guests" && "rotate-180")} />
           </PopoverTrigger>
-          <PopoverContent align="end" className="w-80 rounded-2xl px-4 py-2">
+          <PopoverContent align="end" className="kip-panel w-[var(--anchor-width)] min-w-80 rounded-xl border-0 px-4 py-2 shadow-elev-3 ring-0">
             <GuestPicker value={guests} onChange={setGuests} maxGuests={listing.maxGuests} allowsPets={listing.allowsPets} />
           </PopoverContent>
         </Popover>
       </div>
 
+      {freeCancellationNote && <p className="mt-4 rounded-lg bg-grey-100 px-3 py-2 text-center text-xs">{freeCancellationNote}</p>}
+
       <div className="mt-4">
         {reserveHref ? (
-          <Link href={reserveHref} className={cn(buttonVariants({ size: "lg" }), "h-12 w-full rounded-xl text-base")}>
+          <Link href={reserveHref} className={reserveClass}>
             Reserve
           </Link>
         ) : (
-          <Button
-            size="lg"
-            className="h-12 w-full rounded-xl text-base"
-            disabled={state.status === "loading" || state.status === "error"}
-            onClick={() => setPanel("dates")}
-          >
+          <button type="button" className={reserveClass} disabled={state.status === "loading" || state.status === "error"} onClick={() => setPanel("dates")}>
             {state.status === "loading" ? <Loader2 className="animate-spin" /> : "Check availability"}
-          </Button>
+          </button>
         )}
       </div>
 
@@ -101,7 +104,7 @@ export function BookingWidget({ pricePerNight, rating, reviewCount }: { pricePer
         )}
         {state.status === "ok" && (
           <>
-            <p className="mb-4 text-center text-sm text-muted-foreground">You won&apos;t be charged yet</p>
+            <p className="mb-6 text-center text-sm">You won&apos;t be charged yet</p>
             <PriceBreakdown quote={state.quote} />
           </>
         )}
@@ -114,27 +117,27 @@ export function BookingWidget({ pricePerNight, rating, reviewCount }: { pricePer
 export function MobileReserveBar({ pricePerNight }: { pricePerNight: number }) {
   const { range, quote: state, reserveHref } = useStay();
   return (
-    <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 flex items-center justify-between gap-4 border-t bg-background px-4 py-3 lg:hidden">
+    <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 flex items-center justify-between gap-4 border-t border-grey-300 bg-background px-6 py-4 md:bottom-0 lg:hidden">
       <div className="min-w-0 text-sm">
         {state.status === "ok" ? (
-          <p>
-            <span className="font-semibold">{formatMoney(state.quote.total)}</span> total
+          <p className="text-base">
+            <span className="font-semibold underline">{formatMoney(state.quote.total)}</span> total
           </p>
         ) : (
-          <p>
+          <p className="text-base">
             <span className="font-semibold">{formatMoney(pricePerNight)}</span> night
           </p>
         )}
         <p className="truncate text-muted-foreground">
-          {range?.from && range.to ? `${shortDate(range.from)} – ${shortDate(range.to)}` : state.status === "error" ? state.error : "Add dates"}
+          {range?.from && range.to ? `${shortDate(range.from)} – ${shortDate(range.to)}` : state.status === "error" ? state.error : "Add dates for prices"}
         </p>
       </div>
       {reserveHref ? (
-        <Link href={reserveHref} className={cn(buttonVariants({ size: "lg" }), "rounded-xl")}>
+        <Link href={reserveHref} className="bg-brand-gradient rounded-lg px-6 py-3 text-base font-semibold text-white active:scale-[0.98] focus-ring">
           Reserve
         </Link>
       ) : (
-        <a href="#availability-heading" className={cn(buttonVariants({ size: "lg" }), "rounded-xl")}>
+        <a href="#availability-heading" className="bg-brand-gradient rounded-lg px-6 py-3 text-base font-semibold text-white active:scale-[0.98] focus-ring">
           Check availability
         </a>
       )}

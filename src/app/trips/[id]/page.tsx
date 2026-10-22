@@ -33,7 +33,7 @@ export default async function TripPage({ params, searchParams }: PageProps<"/tri
   const guests = booking.adults + booking.children;
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8 md:px-6">
+    <div className="mx-auto max-w-[1120px] px-6 py-10 min-[1168px]:px-0">
       {confirmed && booking.status === "CONFIRMED" && (
         <div role="status" className="mb-6 flex items-center gap-3 rounded-2xl bg-emerald-50 p-4 text-emerald-900">
           <CheckCircle2 className="size-6 shrink-0" />
@@ -45,7 +45,7 @@ export default async function TripPage({ params, searchParams }: PageProps<"/tri
       )}
 
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-3xl font-semibold tracking-tight">{booking.listing.title}</h1>
+        <h1 className="text-[32px] leading-9 font-semibold">{booking.listing.title}</h1>
         <Badge variant={booking.status === "CANCELLED" ? "destructive" : "secondary"}>
           {booking.status === "CANCELLED" ? "Cancelled" : booking.checkOut <= today ? "Completed" : "Confirmed"}
         </Badge>

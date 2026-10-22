@@ -9,7 +9,7 @@ export default async function NewListingPage() {
   await requireUser("/host/listings/new");
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 md:px-6">
-      <h1 className="mb-8 text-3xl font-semibold tracking-tight">Create a listing</h1>
+      <h1 className="mb-8 text-[32px] leading-9 font-semibold">Create a listing</h1>
       <ListingForm action={createListingAction} submitLabel="Create listing" />
     </div>
   );

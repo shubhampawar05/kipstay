@@ -44,6 +44,12 @@ export async function createSession(userId: string) {
   });
 }
 
+/** Signs the user out everywhere and starts a fresh session here (used after a password change). */
+export async function rotateSessions(userId: string) {
+  await prisma.session.deleteMany({ where: { userId } });
+  await createSession(userId);
+}
+
 export async function destroySession() {
   const jar = await cookies();
   const token = jar.get(SESSION_COOKIE)?.value;

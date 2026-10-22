@@ -47,8 +47,8 @@ export default async function BookPage({ params, searchParams }: PageProps<"/boo
   const guestCount = req.adults + req.children;
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8 md:px-6">
-      <h1 className="text-3xl font-semibold tracking-tight">Confirm and pay</h1>
+    <div className="mx-auto max-w-[1120px] px-6 py-10 min-[1168px]:px-0">
+      <h1 className="text-[32px] leading-9 font-semibold">Confirm and pay</h1>
       <div className="mt-8 grid gap-10 md:grid-cols-[1fr_400px]">
         <div className="space-y-8">
           <section aria-labelledby="trip-heading">
@@ -80,7 +80,7 @@ export default async function BookPage({ params, searchParams }: PageProps<"/boo
           <ReserveForm request={{ ...sp, listingId: id }} total={check.quote.total} />
         </div>
 
-        <aside className="h-fit rounded-2xl border p-6" aria-label="Price summary">
+        <aside className="h-fit rounded-xl border border-grey-400 p-6 shadow-elev-2 md:sticky md:top-28" aria-label="Price summary">
           <div className="flex gap-4">
             <div className="relative size-28 shrink-0 overflow-hidden rounded-xl bg-muted">
               <Image src={listing.images[0]} alt="" fill unoptimized className="object-cover" />
