@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CircleHelp, Heart, Home, Luggage, Menu, UserRound } from "lucide-react";
+import { CircleHelp, Heart, Home, Luggage, Menu, MessageSquare, UserRound } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,8 +10,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { logout } from "@/app/actions/auth";
+import { cn } from "@/lib/utils";
 
-export type MenuUser = { name: string; email: string; isHost: boolean } | null;
+export type MenuUser = { name: string; email: string; isHost: boolean; unread: number } | null;
 
 // Reference icon buttons: 40px grey circles, transform press feedback (250ms standard easing).
 const circle =
@@ -31,8 +32,12 @@ export function UserMenu({ user }: { user: MenuUser }) {
         )}
       </Link>
       <DropdownMenu>
-        <DropdownMenuTrigger className={circle} aria-label={user ? `Account menu for ${user.name}` : "Main menu"}>
+        <DropdownMenuTrigger
+          className={cn(circle, "relative")}
+          aria-label={user ? `Account menu for ${user.name}${user.unread ? `, ${user.unread} unread message${user.unread === 1 ? "" : "s"}` : ""}` : "Main menu"}
+        >
           <Menu className="size-4" strokeWidth={2.5} />
+          {!!user?.unread && <span aria-hidden className="absolute top-1.5 right-1.5 size-2.5 rounded-full border-2 border-grey-200 bg-brand" />}
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="end"
@@ -46,6 +51,12 @@ export function UserMenu({ user }: { user: MenuUser }) {
               </DropdownMenuItem>
               <DropdownMenuItem className={item} render={<Link href="/trips" />}>
                 <Luggage /> Trips
+              </DropdownMenuItem>
+              <DropdownMenuItem className={item} render={<Link href="/messages" />}>
+                <MessageSquare /> Messages
+                {!!user.unread && (
+                  <span className="ml-auto rounded-full bg-brand px-1.5 text-[11px] leading-[18px] font-semibold text-white">{user.unread}</span>
+                )}
               </DropdownMenuItem>
               <DropdownMenuItem className={item} render={<Link href="/account" />}>
                 <UserRound /> Profile & account

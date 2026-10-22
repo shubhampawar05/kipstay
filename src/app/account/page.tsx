@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ChevronRight, CircleHelp, Heart, Home, Luggage } from "lucide-react";
+import { ChevronRight, CircleHelp, Heart, Home, Luggage, MessageSquare } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { logout } from "@/app/actions/auth";
@@ -16,6 +16,7 @@ export default async function AccountPage() {
   const links = [
     { href: "/trips", label: "Trips", icon: Luggage },
     { href: "/wishlists", label: "Wishlists", icon: Heart },
+    { href: "/messages", label: "Messages", icon: MessageSquare },
     { href: "/host", label: user.isHost ? "Host dashboard" : "Become a host", icon: Home },
     { href: "/help", label: "Help Centre", icon: CircleHelp },
   ];

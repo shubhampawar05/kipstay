@@ -1,7 +1,7 @@
 import "server-only";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "./db";
-import { PAGE_SIZE } from "./constants";
+import { PAGE_SIZE, REVIEW_CATEGORIES, type ReviewCategory } from "./constants";
 import { nightsBetween, todayUTC } from "./dates";
 import type { SearchFilters } from "./validation";
 
@@ -46,7 +46,10 @@ export function availableFor(checkIn: Date, checkOut: Date): Prisma.ListingWhere
 export function buildSearchWhere(f: SearchFilters): Prisma.ListingWhereInput {
   const and: Prisma.ListingWhereInput[] = [{ isPublished: true }];
 
-  if (f.location) {
+  if (f.bbox) {
+    // Map search replaces the text destination, as on the reference ("Map area").
+    and.push({ latitude: { gte: f.bbox.south, lte: f.bbox.north }, longitude: { gte: f.bbox.west, lte: f.bbox.east } });
+  } else if (f.location) {
     // "Lisbon, Portugal" → match every comma-separated term against the place fields.
     for (const term of f.location.split(",").map((t) => t.trim()).filter(Boolean)) {
       and.push({
@@ -174,6 +177,15 @@ export async function countListings(f: SearchFilters): Promise<number> {
 export async function ratingDistribution(listingId: string): Promise<number[]> {
   const rows = await prisma.review.groupBy({ by: ["rating"], where: { listingId }, _count: { _all: true } });
   return [5, 4, 3, 2, 1].map((stars) => rows.find((r) => r.rating === stars)?._count._all ?? 0);
+}
+
+/** Average score per review category (null where no review has rated it yet). */
+export async function categoryRatings(listingId: string) {
+  const agg = await prisma.review.aggregate({
+    where: { listingId },
+    _avg: Object.fromEntries(REVIEW_CATEGORIES.map((c) => [c.key, true])) as Record<ReviewCategory, true>,
+  });
+  return REVIEW_CATEGORIES.map((c) => ({ ...c, avg: agg._avg[c.key] }));
 }
 
 /** Aggregate stats for a host across their published listings. */

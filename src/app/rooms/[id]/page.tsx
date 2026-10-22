@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { Check, Clock, DoorOpen, KeyRound, PawPrint, ShieldCheck, Sparkles, Star, X } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
-import { getBookedRanges, getListingDetail, getWishlistIds, hostStats, ratingDistribution } from "@/lib/listings";
+import { categoryRatings, getBookedRanges, getListingDetail, getWishlistIds, hostStats, ratingDistribution } from "@/lib/listings";
 import { CANCELLATION_POLICIES, propertyTypeLabel } from "@/lib/constants";
 import { toISODate } from "@/lib/dates";
 import { normaliseGuests } from "@/lib/validation";
@@ -18,6 +18,7 @@ import { PdpSubnav } from "@/components/listings/pdp-subnav";
 import { ReviewsSection } from "@/components/listings/reviews";
 import { InfoDialog } from "@/components/listings/info-dialog";
 import { LocationMap } from "@/components/listings/location-map";
+import { NearbyLinks } from "@/components/listings/nearby-links";
 
 export async function generateMetadata({ params }: PageProps<"/rooms/[id]">): Promise<Metadata> {
   const listing = await getListingDetail((await params).id);
@@ -33,11 +34,12 @@ export default async function ListingPage({ params, searchParams }: PageProps<"/
   const sp = await searchParams;
   const [listing, user] = await Promise.all([getListingDetail(id), getCurrentUser()]);
   if (!listing) notFound();
-  const [booked, saved, distribution, host] = await Promise.all([
+  const [booked, saved, distribution, host, categories] = await Promise.all([
     getBookedRanges(listing.id),
     getWishlistIds(user?.id),
     ratingDistribution(listing.id),
     hostStats(listing.host.id),
+    categoryRatings(listing.id),
   ]);
 
   const guests = normaliseGuests({ adults: num(sp.adults), children: num(sp.children), infants: num(sp.infants), pets: num(sp.pets) });
@@ -229,6 +231,7 @@ export default async function ListingPage({ params, searchParams }: PageProps<"/
 
         <div className="border-t border-grey-400">
           <ReviewsSection
+            categories={categories}
             listingId={listing.id}
             avgRating={listing.avgRating}
             reviewCount={listing.reviewCount}
@@ -295,9 +298,22 @@ export default async function ListingPage({ params, searchParams }: PageProps<"/
               <p className="mt-6 text-base">
                 {host.listings} listing{host.listings === 1 ? "" : "s"} on Kipstay
               </p>
-              <Link href={`/users/${listing.host.id}`} className="mt-6 inline-block rounded-lg bg-foreground px-6 py-3 text-base font-semibold text-background transition-transform active:scale-[0.98] focus-ring">
-                View host profile
-              </Link>
+              <div className="mt-6 flex flex-wrap gap-3">
+                {user?.id !== listing.host.id && (
+                  <Link
+                    href={`/messages/new?listing=${listing.id}`}
+                    className="inline-block rounded-lg bg-foreground px-6 py-3 text-base font-semibold text-background transition-transform active:scale-[0.98] focus-ring"
+                  >
+                    Message host
+                  </Link>
+                )}
+                <Link
+                  href={`/users/${listing.host.id}`}
+                  className="inline-block rounded-lg border border-foreground px-6 py-3 text-base font-semibold transition-[background-color,transform] hover:bg-grey-100 active:scale-[0.98] focus-ring"
+                >
+                  View host profile
+                </Link>
+              </div>
               <p className="mt-6 flex items-start gap-3 text-xs text-muted-foreground">
                 <ShieldCheck className="size-5 shrink-0" aria-hidden />
                 To protect your payment, always book and pay through Kipstay.
@@ -355,6 +371,9 @@ export default async function ListingPage({ params, searchParams }: PageProps<"/
             </div>
           </div>
         </section>
+        <Suspense>
+          <NearbyLinks city={listing.city} region={listing.region} country={listing.country} />
+        </Suspense>
       </article>
       <MobileReserveBar pricePerNight={listing.pricePerNight} />
     </StayProvider>

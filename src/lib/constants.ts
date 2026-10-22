@@ -57,3 +57,15 @@ export function propertyTypeLabel(type: PropertyType) {
 export function categoryLabel(category: Category) {
   return CATEGORIES.find((c) => c.value === category)?.label ?? category;
 }
+
+/** Review categories rated 1–5 alongside the overall rating (reference review form and listing breakdown). */
+export const REVIEW_CATEGORIES = [
+  { key: "cleanliness", label: "Cleanliness" },
+  { key: "accuracy", label: "Accuracy" },
+  { key: "checkIn", label: "Check-in" },
+  { key: "communication", label: "Communication" },
+  { key: "location", label: "Location" },
+  { key: "value", label: "Value" },
+] as const;
+
+export type ReviewCategory = (typeof REVIEW_CATEGORIES)[number]["key"];

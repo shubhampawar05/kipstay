@@ -38,7 +38,7 @@ async function HostDashboard({ user, notice }: { user: CurrentUser; notice: stri
     }),
     prisma.booking.findMany({
       where: { listing: { hostId: user.id }, checkOut: { gt: today } },
-      include: { listing: { select: { title: true } }, guest: { select: { name: true } } },
+      include: { listing: { select: { id: true, title: true } }, guest: { select: { id: true, name: true } } },
       orderBy: { checkIn: "asc" },
       take: 50,
     }),
@@ -126,7 +126,12 @@ async function HostDashboard({ user, notice }: { user: CurrentUser; notice: stri
                       <Badge variant={r.status === "CANCELLED" ? "destructive" : "secondary"}>{r.status === "CANCELLED" ? "Cancelled" : "Confirmed"}</Badge>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {r.status === "CONFIRMED" && r.checkIn > today && <CancelButton bookingId={r.id} label="Cancel" />}
+                      <div className="flex justify-end gap-2">
+                        <Link href={`/messages/new?listing=${r.listing.id}&guest=${r.guest.id}`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+                          Message
+                        </Link>
+                        {r.status === "CONFIRMED" && r.checkIn > today && <CancelButton bookingId={r.id} label="Cancel" />}
+                      </div>
                     </td>
                   </tr>
                 ))}

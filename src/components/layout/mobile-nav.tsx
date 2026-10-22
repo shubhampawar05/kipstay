@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Heart, Home, Luggage, Search, UserRound } from "lucide-react";
+import { Heart, Luggage, MessageSquare, Search, UserRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -37,7 +37,7 @@ function useHideOnScroll() {
 }
 
 /** Bottom tab bar for phones (hidden from md up, where the header menu takes over). */
-export function MobileNav({ signedIn, isHost }: { signedIn: boolean; isHost: boolean }) {
+export function MobileNav({ signedIn, unread }: { signedIn: boolean; unread: number }) {
   const pathname = usePathname();
   const scrolledAway = useHideOnScroll();
   // Listing pages have their own fixed reserve bar in this spot.
@@ -48,7 +48,8 @@ export function MobileNav({ signedIn, isHost }: { signedIn: boolean; isHost: boo
     ...(signedIn
       ? [
           { href: "/trips", label: "Trips", icon: Luggage, match: (p: string) => p.startsWith("/trips") },
-          { href: "/host", label: isHost ? "Hosting" : "Host", icon: Home, match: (p: string) => p.startsWith("/host") },
+          // Reference guest tabs: Explore, Wishlists, Trips, Messages, Profile (hosting is reached from Profile).
+          { href: "/messages", label: "Messages", icon: MessageSquare, match: (p: string) => p.startsWith("/messages"), badge: unread },
           { href: "/account", label: "Profile", icon: UserRound, match: (p: string) => p.startsWith("/account") },
         ]
       : [{ href: "/login", label: "Log in", icon: UserRound, match: (p: string) => p.startsWith("/login") }]),
@@ -63,8 +64,9 @@ export function MobileNav({ signedIn, isHost }: { signedIn: boolean; isHost: boo
       )}
     >
       <ul className="mx-auto flex max-w-md justify-around">
-        {items.map(({ href, label, icon: Icon, match }) => {
+        {items.map(({ href, label, icon: Icon, match, ...item }) => {
           const active = match(pathname);
+          const badge = "badge" in item ? item.badge : 0;
           return (
             <li key={href}>
               <Link
@@ -76,8 +78,12 @@ export function MobileNav({ signedIn, isHost }: { signedIn: boolean; isHost: boo
                   active ? "text-primary" : "text-muted-foreground",
                 )}
               >
-                <Icon className="size-6" strokeWidth={active ? 2.4 : 1.8} />
+                <span className="relative">
+                  <Icon className="size-6" strokeWidth={active ? 2.4 : 1.8} />
+                  {!!badge && <span aria-hidden className="absolute -top-0.5 -right-1 size-2.5 rounded-full border-2 border-background bg-brand" />}
+                </span>
                 {label}
+                {!!badge && <span className="sr-only">, {badge} unread</span>}
               </Link>
             </li>
           );

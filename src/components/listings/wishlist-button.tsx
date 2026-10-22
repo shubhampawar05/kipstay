@@ -4,10 +4,11 @@ import { useOptimistic, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Heart } from "lucide-react";
 import { toast } from "sonner";
-import { toggleWishlist } from "@/app/actions/wishlist";
+import { removeFromWishlists } from "@/app/actions/wishlist";
 import { cn } from "@/lib/utils";
 import { AuthDialog } from "@/components/auth/auth-dialog";
 import { circleButton } from "./share-button";
+import { SaveToWishlistDialog } from "./save-to-wishlist-dialog";
 
 export function WishlistButton({
   listingId,
@@ -24,41 +25,64 @@ export function WishlistButton({
   const [optimistic, setOptimistic] = useOptimistic(saved);
   const [pending, startTransition] = useTransition();
   const [authOpen, setAuthOpen] = useState(false);
+  const [saveOpen, setSaveOpen] = useState(false);
 
-  function toggle() {
+  // Reference behaviour: an empty heart opens "Save to wishlist"; a filled one removes the stay from every list.
+  function onClick(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (pending) return;
+    if (!optimistic) {
+      setSaveOpen(true);
+      return;
+    }
     startTransition(async () => {
-      setOptimistic(!optimistic);
-      const result = await toggleWishlist(listingId);
-      if (!result.ok) {
-        // Logged out: log in over the page, then finish the save (see onAuthenticated).
-        if (result.reason === "auth") setAuthOpen(true);
-        else toast.error("This listing is no longer available.");
+      setOptimistic(false);
+      const result = await removeFromWishlists(listingId).catch(() => null);
+      if (!result?.ok) {
+        if (result?.reason === "auth") setAuthOpen(true);
+        else toast.error("Couldn't update your wishlists. Try again.");
         return;
       }
-      toast(result.saved ? `Saved ${title}` : `Removed ${title} from your wishlist`);
+      toast(`Removed ${title} from your wishlists`);
       router.refresh();
     });
   }
 
-  function onClick(e: React.MouseEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!pending) toggle();
+  function onSaved(listName: string) {
+    startTransition(() => {
+      setOptimistic(true);
+      router.refresh();
+    });
+    toast(`Saved to ${listName}`, { action: { label: "Change", onClick: () => setSaveOpen(true) } });
   }
 
   function onAuthenticated() {
     setAuthOpen(false);
-    // The button was showing "not saved" for a logged-out visitor, so this toggle saves.
-    toggle();
+    router.refresh();
+    // Logged in now: continue straight into choosing a list.
+    setSaveOpen(true);
   }
 
   const dialog = (
-    <AuthDialog
-      open={authOpen}
-      onOpenChange={setAuthOpen}
-      onAuthenticated={onAuthenticated}
-      reason="Log in or sign up to save places to your wishlist."
-    />
+    <>
+      <SaveToWishlistDialog
+        open={saveOpen}
+        onOpenChange={setSaveOpen}
+        listingId={listingId}
+        onSaved={onSaved}
+        onAuthRequired={() => {
+          setSaveOpen(false);
+          setAuthOpen(true);
+        }}
+      />
+      <AuthDialog
+        open={authOpen}
+        onOpenChange={setAuthOpen}
+        onAuthenticated={onAuthenticated}
+        reason="Log in or sign up to save places to your wishlist."
+      />
+    </>
   );
 
   const label = `${optimistic ? "Remove from" : "Add to"} wishlist: ${title}`;

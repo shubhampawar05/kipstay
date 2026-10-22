@@ -165,6 +165,42 @@ upcoming trip and one saved listing, and the hosts own the 26 seeded listings.
   - Outside-click listeners only run while the list is open, and carousel edge checks run at most once per frame.
   - A hidden table header no longer widens the host dashboard on phones.
 
+### Round 4: messaging, named wishlists, map search, category ratings
+
+Gaps came from a fresh REA capture of the reference results page (evidence `ev_254292a8…`, at
+`../investigation/evidence/round4_results_ref.*`) and the round-1 listing-page accessibility tree.
+
+- **Header flicker fix:**
+  - The home search band now sits in normal page flow under a fixed-height sticky bar, and an IntersectionObserver
+    crossfades the compact pill in once the big pill has slid under the bar.
+  - Before, collapsing the header shrank it by about 165 px, Chrome's scroll anchoring pulled the page back, and the header
+    looped between states.
+  - The hidden band is `inert`/`aria-hidden`.
+- **Messaging (`/messages`):**
+  - "Message host" on listing and trip pages, "Message" per reservation for hosts, an inbox with unread dots, and threads
+    that send optimistically and refresh every 8 s while visible.
+  - Unread state shows in the account menu and on a Messages tab on phones.
+  - One conversation per guest and listing. Only the two participants can read or post (others get a 404). Hosts can only
+    message guests who booked. Bodies are 1–2000 characters, enforced with zod and a DB CHECK.
+- **Named wishlists:**
+  - The heart opens the reference's "Save to wishlist" dialog: list tiles with cover photos, or create a list (50-character
+    name with a counter). The toast has a "Change" action.
+  - A filled heart removes the stay from every list.
+  - `/wishlists` shows list tiles (1 + 2 collage). `/wishlists/[id]` adds rename and delete; other users get a 404.
+  - Existing saves were migrated into a "Saved" list.
+- **Map search:**
+  - Panning or zooming the results map re-runs the search for the visible area (`bbox` in the URL, validated on the server),
+    as on the reference.
+  - The first map search adds a history entry, so Back returns to the text search.
+  - "Search as I move the map" can be turned off, which shows "Search this area" instead.
+  - Desktop has an expand-map toggle.
+  - Only real user input triggers a search; fitting to results and resizing don't.
+- **Category ratings:** reviews rate Cleanliness, Accuracy, Check-in, Communication, Location and Value (required, 1–5,
+  DB CHECK). The listing page shows the reference's breakdown row with an icon per category.
+- **Search bar motion:** a single white pill slides between Where, When and Who (transform + width, 300 ms standard easing).
+- **Listing page:** "Explore other options in and around {city}" links (other stay types here, nearby cities) and a
+  breadcrumb.
+
 ## Project layout
 
 ```
@@ -177,15 +213,15 @@ tests/unit         pricing/validation specs + a DB integration test for the over
 tests/e2e          search, auth, booking, wishlist, host, mobile
 ```
 
-## Verification status (2026-10-22, round 3)
+## Verification status (2026-10-22, round 4)
 
 | Check | Result |
 |---|---|
 | `npm run lint` | ✅ no warnings or errors |
 | `npm run typecheck` | ✅ no errors |
 | `npm run build` | ✅ succeeds (all routes dynamic) |
-| `npx playwright test` | ✅ 38 passed, 4 skipped (9 unit/integration, 25 desktop e2e, 4 mobile e2e; the skips are the mobile specs inside the desktop project) |
-| Responsive sweep | ✅ 16 pages × 375/390/768/1280/1440 px: no horizontal overflow; no console errors except the intentional 404 |
+| `npx playwright test` | ✅ 45 passed, 4 skipped (9 unit/integration, 32 desktop e2e, 4 mobile e2e; the skips are the mobile specs inside the desktop project) |
+| Responsive sweep | ✅ 20 pages × 375/390/768/1280/1440 px: no horizontal overflow; no console errors except the intentional 404 |
 
 The e2e suite covers:
 - **Search:** autocomplete through results to a listing; date-aware availability and discounts; filters; empty state; capacity; 404.
@@ -216,8 +252,10 @@ The e2e suite covers:
   you're licensed for in production. There's no clustering or search-as-you-move-the-map.
 - **Photo uploads:** hosts paste image URLs (or use the bundled artwork). There's no file storage integration.
 - **Host calendar** blocks whole nights only. There's no per-night pricing, and no iCal import or export.
-- **Not built:** messaging between guests and hosts, multiple named wishlists, social login,
-  email verification, password reset, "Flexible dates" search, per-category review ratings, Experiences/Services verticals.
+- **Messaging** refreshes every 8 s while the tab is visible; there are no push or websocket updates and no email
+  notifications. Attachments aren't supported.
+- **Map search** uses a simple latitude/longitude box, so it doesn't handle an area crossing the antimeridian.
+- **Not built:** social login, email verification, password reset, "Flexible dates" search, Experiences/Services verticals.
 - **Rate limiting** is in-memory per server instance; use a shared store (for example Redis) for multi-instance deployments.
 - **Currency:** USD only. Date math is calendar-day based (UTC); the date picker renders client-side to use the viewer's local "today".
 - **E2E data:** the e2e suite writes test users and bookings to the configured database. Run `npm run db:seed` to reset.
