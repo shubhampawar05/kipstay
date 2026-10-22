@@ -11,8 +11,8 @@ export function AvailabilityCalendar({ city }: { city: string }) {
   const nights = complete ? nightsBetween(fromLocalDay(range.from!), fromLocalDay(range.to!)) : 0;
 
   return (
-    <section aria-labelledby="availability-heading" className="py-8">
-      <h2 id="availability-heading" className="text-xl font-semibold">
+    <section aria-labelledby="availability-heading" className="py-12">
+      <h2 id="availability-heading" className="scroll-mt-28 text-[22px] leading-[26px] font-semibold">
         {complete ? `${nights} night${nights === 1 ? "" : "s"} in ${city}` : "Select check-in date"}
       </h2>
       <p className="mt-1 text-sm text-muted-foreground">
@@ -23,10 +23,10 @@ export function AvailabilityCalendar({ city }: { city: string }) {
             : "Add your travel dates for exact pricing"}
       </p>
       <div className="mt-4 overflow-x-auto" data-testid="availability-calendar">
-        <DateRangeCalendar value={range} onChange={setRange} disabled={[isDisabled]} minNights={listing.minNights} />
+        <DateRangeCalendar value={range} onChange={setRange} disabled={[isDisabled]} minNights={listing.minNights} strikeUnavailable compact />
       </div>
       {range && (
-        <Button variant="link" className="mt-2 px-0 text-foreground underline" onClick={() => setRange(undefined)}>
+        <Button variant="link" className="mt-2 px-0 font-semibold text-foreground underline" onClick={() => setRange(undefined)}>
           Clear dates
         </Button>
       )}

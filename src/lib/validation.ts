@@ -79,6 +79,27 @@ export const signupSchema = z.object({
     .regex(/[0-9]/, "Include a number"),
 });
 
+const newPassword = z
+  .string()
+  .min(10, "Use at least 10 characters")
+  .max(128)
+  .regex(/[a-zA-Z]/, "Include a letter")
+  .regex(/[0-9]/, "Include a number");
+
+export const profileSchema = z.object({
+  name: z.string().trim().min(2, "Enter your name").max(80),
+  bio: z.string().trim().max(500, "Keep your bio under 500 characters").default(""),
+});
+
+export const passwordChangeSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Enter your current password").max(128),
+    newPassword,
+    confirmPassword: z.string(),
+  })
+  .refine((v) => v.newPassword === v.confirmPassword, { message: "Passwords don't match", path: ["confirmPassword"] })
+  .refine((v) => v.newPassword !== v.currentPassword, { message: "Choose a password you haven't used here", path: ["newPassword"] });
+
 export const loginSchema = z.object({
   email: z.string().trim().toLowerCase().email("Enter a valid email").max(254),
   password: z.string().min(1, "Enter your password").max(128),

@@ -64,7 +64,7 @@ async function HostDashboard({ user, notice }: { user: CurrentUser; notice: stri
   const upcomingRevenue = confirmed.reduce((sum, r) => sum + r.subtotal - r.discount + r.cleaningFee, 0);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 md:px-6">
+    <div className="page-gutter py-10">
       {notice && (
         <p role="status" className="mb-6 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
           {notice}
@@ -72,7 +72,7 @@ async function HostDashboard({ user, notice }: { user: CurrentUser; notice: stri
       )}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Welcome back, {user.name.split(" ")[0]}</h1>
+          <h1 className="text-[32px] leading-9 font-semibold">Welcome back, {user.name.split(" ")[0]}</h1>
           <p className="text-muted-foreground">Manage your listings and upcoming reservations.</p>
         </div>
         <Link href="/host/listings/new" className={buttonVariants()}>
@@ -86,7 +86,7 @@ async function HostDashboard({ user, notice }: { user: CurrentUser; notice: stri
           ["Upcoming reservations", String(confirmed.length), "Confirmed stays not yet finished"],
           ["Upcoming earnings", formatMoney(upcomingRevenue), "Nightly totals + cleaning, before payout"],
         ].map(([label, value, hint]) => (
-          <div key={label} className="rounded-2xl border p-5">
+          <div key={label} className="rounded-2xl border border-grey-400 p-5 shadow-elev-1">
             <dt className="text-sm text-muted-foreground">{label}</dt>
             <dd className="mt-1 text-3xl font-semibold">{value}</dd>
             <dd className="mt-1 text-xs text-muted-foreground">{hint}</dd>

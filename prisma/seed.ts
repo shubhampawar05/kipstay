@@ -70,6 +70,55 @@ const listings: Seed[] = [
   { title: "Joshua Tree Star House", city: "Joshua Tree", region: "California", country: "United States", lat: 34.13, lng: -116.31, category: "DESERT", type: "HOUSE", guests: 4, bedrooms: 2, beds: 2, baths: 2, price: 225, cleaning: 70, minNights: 2, pets: true, amenities: ["Wifi", "Hot tub", "Air conditioning", "Kitchen", "Free parking", "EV charger", "Smoke alarm"], blurb: "A low adobe house among boulders, with a cowboy tub and a telescope on the roof." },
 ];
 
+
+// Extra fictional stays per city so every home-page row can fill a 7-card carousel.
+const NEIGHBOURHOODS: Record<string, string[]> = {
+  Lisbon: ["Príncipe Real", "Belém", "Graça", "Cascais Coast"],
+  Kyoto: ["Higashiyama", "Nishiki", "Ohara Valley", "Fushimi"],
+  Banff: ["Tunnel Mountain", "Canmore Ridge", "Spray Valley"],
+  "Lake Tahoe": ["Kings Beach", "Tahoe City", "South Shore"],
+  Asheville: ["River Arts", "Weaverville", "Black Mountain"],
+  Tulum: ["Aldea Zamá", "La Veleta", "Playa Paraíso"],
+  Santorini: ["Imerovigli", "Firostefani", "Pyrgos"],
+  Marrakech: ["Mouassine", "Palmeraie", "Kasbah"],
+  Reykjavik: ["Vesturbær", "Hlíðar", "Grótta"],
+  "Cape Town": ["Bo-Kaap", "Constantia", "Muizenberg"],
+  Goa: ["Assagao Hills", "Candolim", "Agonda"],
+  Bled: ["Zasip", "Bohinj Edge"],
+  "Joshua Tree": ["Yucca Mesa", "Pioneertown"],
+};
+const ADJECTIVES = ["Sunlit", "Quiet", "Garden", "Hillside", "Modern", "Hidden", "Breezy", "Artist's", "Courtyard", "Panorama"];
+const TYPE_WORD: Record<PropertyType, string> = {
+  APARTMENT: "Apartment",
+  HOUSE: "House",
+  CABIN: "Cabin",
+  VILLA: "Villa",
+  COTTAGE: "Cottage",
+  LOFT: "Loft",
+  TINY_HOME: "Hideaway",
+};
+const baseCount = listings.length;
+for (let i = 0; i < baseCount; i++) {
+  const base = listings[i];
+  const hoods = NEIGHBOURHOODS[base.city] ?? [];
+  const extra = hoods.filter((_, j) => (i + j) % 2 === 0 || hoods.length <= 3).slice(0, 3);
+  extra.forEach((hood, j) => {
+    const scale = 0.75 + ((i * 7 + j * 13) % 9) / 10; // 0.75–1.55
+    listings.push({
+      ...base,
+      title: `${ADJECTIVES[(i + j * 3) % ADJECTIVES.length]} ${TYPE_WORD[base.type]} in ${hood}`,
+      lat: base.lat + (j + 1) * 0.011,
+      lng: base.lng - (j + 1) * 0.013,
+      price: Math.max(40, Math.round((base.price * scale) / 5) * 5),
+      cleaning: Math.round(base.cleaning * scale),
+      guests: Math.max(2, base.guests + ((j % 3) - 1) * 2),
+      bedrooms: Math.max(1, base.bedrooms + ((j % 3) - 1)),
+      beds: Math.max(1, base.beds + ((j % 3) - 1)),
+      blurb: `${base.blurb} Tucked away in ${hood}, it's a calm base with easy access to the best of ${base.city}.`,
+    });
+  });
+}
+
 const reviewers = [
   { name: "Maya Okafor", email: "maya@kipstay.test" },
   { name: "Lucas Brandt", email: "lucas@kipstay.test" },

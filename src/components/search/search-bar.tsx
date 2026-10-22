@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { DateRange } from "react-day-picker";
 import { Search } from "lucide-react";
@@ -23,7 +23,9 @@ export type SearchInitial = {
   pets?: number;
 };
 
-function useSearchState(initial: SearchInitial) {
+export type SearchPanel = "where" | "when" | "who";
+
+function useSearchState(initial: SearchInitial, onSubmitted?: () => void) {
   const router = useRouter();
   const [location, setLocation] = useState(initial.location ?? "");
   const [range, setRange] = useState<DateRange | undefined>(() => {
@@ -43,6 +45,7 @@ function useSearchState(initial: SearchInitial) {
 
   function submit() {
     const complete = range?.from && range.to;
+    onSubmitted?.();
     router.push(
       searchHref({
         location,
@@ -62,21 +65,68 @@ function useSearchState(initial: SearchInitial) {
   return { location, setLocation, range, setRange, guests, setGuests, datesLabel, submit, clear };
 }
 
-type Panel = "when" | "who" | null;
+// Segment styling measured on the reference bar: 15x32 padding, radius 32, #EBEBEB hover fill,
+// white raised segment while its panel is open.
+const segmentBase =
+  "relative flex h-full min-w-0 flex-1 flex-col justify-center rounded-[32px] px-8 text-left outline-none transition-[background-color,box-shadow] duration-200 ease-standard focus-visible:shadow-[var(--focus-ring)]";
+const segmentIdle = "hover:bg-grey-300";
+const segmentActive = "bg-background shadow-elev-3 hover:bg-background";
+const label = "text-xs leading-4 font-medium text-foreground";
+const value = "truncate text-sm leading-[18px]";
+
+function Divider({ hidden }: { hidden: boolean }) {
+  return <span aria-hidden className={cn("h-8 w-px shrink-0 bg-grey-400 transition-opacity", hidden && "opacity-0")} />;
+}
 
 /** Desktop three-segment search pill (Where · When · Who). */
-export function SearchBar({ initial = {}, className }: { initial?: SearchInitial; className?: string }) {
-  const s = useSearchState(initial);
-  const [panel, setPanel] = useState<Panel>(null);
-  const segment =
-    "flex h-full flex-col justify-center rounded-full px-6 text-left transition-colors hover:bg-muted data-[popup-open]:bg-background data-[popup-open]:shadow-lg";
+export function SearchBar({
+  initial = {},
+  className,
+  initialPanel,
+  onSubmitted,
+  onActiveChange,
+}: {
+  initial?: SearchInitial;
+  className?: string;
+  /** Segment to open on mount, e.g. when expanded from the compact header pill. */
+  initialPanel?: SearchPanel;
+  onSubmitted?: () => void;
+  /** Lets the header keep the full search open while the user is editing it. */
+  onActiveChange?: (active: boolean) => void;
+}) {
+  const s = useSearchState(initial, onSubmitted);
+  const [panel, setPanel] = useState<SearchPanel | null>(initialPanel ?? null);
+  const whereRef = useRef<HTMLDivElement>(null);
+  const active = panel !== null;
+
+  useEffect(() => {
+    if (initialPanel === "where") whereRef.current?.querySelector("input")?.focus();
+  }, [initialPanel]);
+
+  useEffect(() => {
+    onActiveChange?.(active);
+  }, [active, onActiveChange]);
+  useEffect(() => () => onActiveChange?.(false), [onActiveChange]);
+
+  // Closing a panel by clicking the search button would otherwise shrink the button mid-click,
+  // so it stays wide briefly after the bar goes inactive.
+  const [wide, setWide] = useState(active);
+  useEffect(() => {
+    if (active) {
+      const t = setTimeout(() => setWide(true), 0);
+      return () => clearTimeout(t);
+    }
+    const t = setTimeout(() => setWide(false), 300);
+    return () => clearTimeout(t);
+  }, [active]);
 
   return (
     <form
       role="search"
       aria-label="Search stays"
+      data-active={active}
       className={cn(
-        "flex h-16 w-full max-w-3xl items-center rounded-full border bg-background shadow-sm has-[[data-popup-open]]:bg-muted",
+        "flex h-[66px] w-full max-w-[850px] items-center rounded-[32px] border border-grey-400 bg-background shadow-search transition-colors duration-200 ease-standard data-[active=true]:border-transparent data-[active=true]:bg-grey-300",
         className,
       )}
       onSubmit={(e) => {
@@ -85,103 +135,184 @@ export function SearchBar({ initial = {}, className }: { initial?: SearchInitial
         s.submit();
       }}
     >
-      <label className="flex h-full flex-[1.3] flex-col justify-center rounded-full px-6 hover:bg-muted focus-within:bg-background focus-within:shadow-lg">
-        <span className="text-xs font-semibold">Where</span>
-        <DestinationInput value={s.location} onChange={s.setLocation} onSelect={() => setPanel("when")} />
-      </label>
+      <div
+        ref={whereRef}
+        className={cn(segmentBase, "cursor-text", panel === "where" ? segmentActive : segmentIdle)}
+        onFocus={() => setPanel("where")}
+        onClick={() => whereRef.current?.querySelector("input")?.focus()}
+      >
+        <span className={label}>Where</span>
+        <DestinationInput
+          value={s.location}
+          onChange={s.setLocation}
+          onSelect={() => setPanel("when")}
+          onClose={() => setPanel((p) => (p === "where" ? null : p))}
+          inputClassName={cn(value, "text-foreground placeholder:text-muted-foreground")}
+          panelClassName="-left-8 mt-[27px]"
+        />
+      </div>
+
+      <Divider hidden={panel === "where" || panel === "when"} />
 
       <Popover open={panel === "when"} onOpenChange={(open) => setPanel(open ? "when" : null)}>
-        <PopoverTrigger className={cn(segment, "flex-1")} aria-label={`When: ${s.datesLabel ?? "Add dates"}`}>
-          <span className="text-xs font-semibold">When</span>
-          <span className={cn("truncate text-sm", !s.datesLabel && "text-muted-foreground")}>{s.datesLabel ?? "Add dates"}</span>
+        <PopoverTrigger className={cn(segmentBase, panel === "when" ? segmentActive : segmentIdle)} aria-label={`When: ${s.datesLabel ?? "Add dates"}`}>
+          <span className={label}>When</span>
+          <span className={cn(value, s.datesLabel ? "text-foreground" : "text-muted-foreground")}>{s.datesLabel ?? "Add dates"}</span>
         </PopoverTrigger>
-        <PopoverContent className="w-auto rounded-3xl p-4" align="center" sideOffset={12}>
-          <DateRangeCalendar value={s.range} onChange={s.setRange} autoFocus />
-          <div className="flex items-center justify-between border-t pt-3">
-            <Button type="button" variant="ghost" size="sm" onClick={() => s.setRange(undefined)}>
+        <PopoverContent
+          className="kip-panel w-[min(850px,calc(100vw-2rem))] rounded-[32px] border-0 p-8 shadow-elev-4 ring-0"
+          align="center"
+          sideOffset={12}
+        >
+          <div className="flex justify-center">
+            <DateRangeCalendar value={s.range} onChange={s.setRange} autoFocus />
+          </div>
+          <div className="mt-2 flex items-center justify-between">
+            <Button type="button" variant="link" className="px-0 font-semibold text-foreground underline" onClick={() => s.setRange(undefined)}>
               Clear dates
             </Button>
-            <Button type="button" size="sm" onClick={() => setPanel("who")} disabled={!s.range?.to}>
+            <Button type="button" variant="dark" size="lg" className="h-10 rounded-lg px-5" onClick={() => setPanel("who")} disabled={!s.range?.to}>
               Next
             </Button>
           </div>
         </PopoverContent>
       </Popover>
 
-      <div className="flex h-full flex-1 items-center rounded-full pr-2 hover:bg-muted has-[[data-popup-open]]:bg-background has-[[data-popup-open]]:shadow-lg">
+      <Divider hidden={panel === "when" || panel === "who"} />
+
+      <div className={cn(segmentBase, "flex-row items-center gap-2 pr-2", panel === "who" ? segmentActive : segmentIdle)}>
         <Popover open={panel === "who"} onOpenChange={(open) => setPanel(open ? "who" : null)}>
           <PopoverTrigger
-            className="flex h-full min-w-0 flex-1 flex-col justify-center rounded-full pl-6 text-left"
+            className="flex h-full min-w-0 flex-1 flex-col justify-center text-left outline-none"
             aria-label={`Who: ${guestSummary(s.guests) ?? "Add guests"}`}
           >
-            <span className="text-xs font-semibold">Who</span>
-            <span className={cn("truncate text-sm", !guestSummary(s.guests) && "text-muted-foreground")}>
+            <span className={label}>Who</span>
+            <span className={cn(value, guestSummary(s.guests) ? "text-foreground" : "text-muted-foreground")}>
               {guestSummary(s.guests) ?? "Add guests"}
             </span>
           </PopoverTrigger>
-          <PopoverContent className="w-96 rounded-3xl px-6 py-2" align="end" sideOffset={12}>
+          <PopoverContent className="kip-panel w-[425px] rounded-[32px] border-0 px-8 py-4 shadow-elev-4 ring-0" align="end" alignOffset={-8} sideOffset={20}>
             <GuestPicker value={s.guests} onChange={s.setGuests} />
           </PopoverContent>
         </Popover>
-        <Button type="submit" size="icon-lg" className="size-12 shrink-0 rounded-full" aria-label="Search">
-          <Search className="size-5" />
-        </Button>
+        <button
+          type="submit"
+          aria-label="Search"
+          className={cn(
+            "bg-brand-gradient flex h-12 shrink-0 items-center justify-center gap-2 overflow-hidden rounded-full text-white transition-[width,padding] duration-250 ease-standard focus-ring press",
+            wide ? "w-[112px] px-4" : "w-12",
+          )}
+        >
+          <Search className="size-4 shrink-0" strokeWidth={3} />
+          <span className={cn("text-base font-semibold transition-opacity duration-150", wide ? "opacity-100" : "w-0 opacity-0")}>Search</span>
+        </button>
       </div>
     </form>
   );
 }
 
-/** Mobile: a pill that opens a full-height sheet with the same three steps. */
+/** Collapsed header pill ("Anywhere · Any week · Add guests") that expands the full search at a segment. */
+export function CompactSearch({ initial = {}, onOpen }: { initial?: SearchInitial; onOpen: (panel: SearchPanel) => void }) {
+  const from = fromISO(initial.checkin);
+  const to = fromISO(initial.checkout);
+  const dates = from && to ? `${shortDate(from)} – ${shortDate(to)}` : null;
+  const guests = guestSummary({
+    adults: initial.adults ?? 0,
+    children: initial.children ?? 0,
+    infants: initial.infants ?? 0,
+    pets: initial.pets ?? 0,
+  });
+  const seg = "h-full truncate px-4 text-sm font-medium outline-none focus-visible:underline";
+
+  return (
+    <div
+      role="search"
+      aria-label="Search stays"
+      className="kip-fade-in flex h-12 max-w-full items-center rounded-full border border-grey-400 bg-background pl-2 shadow-search transition-shadow duration-200 hover:shadow-elev-2"
+    >
+      <button type="button" className={cn(seg, "max-w-56 pl-4")} onClick={() => onOpen("where")}>
+        {initial.location || "Anywhere"}
+      </button>
+      <span aria-hidden className="h-6 w-px bg-grey-400" />
+      <button type="button" className={seg} onClick={() => onOpen("when")}>
+        {dates ?? "Any week"}
+      </button>
+      <span aria-hidden className="h-6 w-px bg-grey-400" />
+      <button type="button" className={cn(seg, !guests && "font-normal text-muted-foreground")} onClick={() => onOpen("who")}>
+        {guests ?? "Add guests"}
+      </button>
+      <button
+        type="button"
+        aria-label="Open search"
+        className="bg-brand-gradient mr-2 grid size-8 shrink-0 place-items-center rounded-full text-white press focus-ring"
+        onClick={() => onOpen("where")}
+      >
+        <Search className="size-3.5" strokeWidth={3} />
+      </button>
+    </div>
+  );
+}
+
+/** Mobile: a "Start your search" pill that opens a full-height sheet with the same three steps. */
 export function MobileSearch({ initial = {} }: { initial?: SearchInitial }) {
   const s = useSearchState(initial);
   const [open, setOpen] = useState(false);
-  const summary = [s.datesLabel ?? "Any week", guestSummary(s.guests) ?? "Add guests"].join(" · ");
+  const hasQuery = s.location || s.datesLabel || guestSummary(s.guests);
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger className="flex w-full items-center gap-3 rounded-full border bg-background px-4 py-2.5 text-left shadow-md" aria-label="Open search">
-        <Search className="size-5 shrink-0" />
-        <span className="min-w-0">
-          <span className="block truncate text-sm font-semibold">{s.location || "Where to?"}</span>
-          <span className="block truncate text-xs text-muted-foreground">{summary}</span>
-        </span>
+      <SheetTrigger
+        className="flex h-14 w-full items-center justify-center gap-3 rounded-full border border-grey-300 bg-background px-6 shadow-elev-2 press focus-ring"
+        aria-label="Open search"
+      >
+        <Search className="size-4 shrink-0" strokeWidth={2.5} />
+        {hasQuery ? (
+          <span className="min-w-0 text-left">
+            <span className="block truncate text-sm font-semibold">{s.location || "Anywhere"}</span>
+            <span className="block truncate text-xs text-muted-foreground">
+              {[s.datesLabel ?? "Any week", guestSummary(s.guests) ?? "Add guests"].join(" · ")}
+            </span>
+          </span>
+        ) : (
+          <span className="text-base font-medium">Start your search</span>
+        )}
       </SheetTrigger>
-      <SheetContent side="bottom" className="h-[92dvh] overflow-y-auto rounded-t-3xl">
+      <SheetContent side="bottom" className="gap-0 overflow-y-auto rounded-t-[32px] bg-grey-100 data-[side=bottom]:h-[94dvh] data-[side=bottom]:animate-[kip-sheet-up_500ms_var(--ease-enter)]">
         <SheetHeader>
           <SheetTitle>Find a stay</SheetTitle>
         </SheetHeader>
         <form
           role="search"
           aria-label="Search stays"
-          className="flex flex-col gap-4 px-4 pb-6"
+          className="flex flex-col gap-3 px-4 pb-6"
           onSubmit={(e) => {
             e.preventDefault();
             setOpen(false);
             s.submit();
           }}
         >
-          <section className="rounded-2xl border p-4 shadow-sm">
-            <h3 className="mb-2 text-lg font-semibold">Where to?</h3>
-            <div className="rounded-xl border px-3 py-3">
-              <DestinationInput value={s.location} onChange={s.setLocation} />
+          <section className="rounded-[24px] bg-background p-5 shadow-elev-2">
+            <h3 className="mb-3 text-[22px] leading-[26px] font-semibold">Where?</h3>
+            <div className="rounded-xl border border-grey-600 px-4 py-3.5">
+              <DestinationInput value={s.location} onChange={s.setLocation} inputClassName="text-sm" inline />
             </div>
           </section>
-          <section className="rounded-2xl border p-4 shadow-sm">
-            <h3 className="mb-2 text-lg font-semibold">When?</h3>
+          <section className="rounded-[24px] bg-background p-5 shadow-elev-2">
+            <h3 className="mb-2 text-[22px] leading-[26px] font-semibold">When?</h3>
             <div className="flex justify-center">
               <DateRangeCalendar value={s.range} onChange={s.setRange} />
             </div>
           </section>
-          <section className="rounded-2xl border px-4 pt-4 pb-2 shadow-sm">
-            <h3 className="text-lg font-semibold">Who?</h3>
+          <section className="rounded-[24px] bg-background px-5 pt-5 pb-2 shadow-elev-2">
+            <h3 className="text-[22px] leading-[26px] font-semibold">Who?</h3>
             <GuestPicker value={s.guests} onChange={s.setGuests} />
           </section>
-          <div className="sticky bottom-0 -mx-4 flex items-center justify-between border-t bg-background px-4 pt-3">
-            <Button type="button" variant="link" className="px-0 text-foreground underline" onClick={s.clear}>
+          <div className="sticky bottom-0 -mx-4 flex items-center justify-between border-t bg-background px-6 pt-3 pb-1">
+            <Button type="button" variant="link" className="px-0 font-semibold text-foreground underline" onClick={s.clear}>
               Clear all
             </Button>
-            <Button type="submit" size="lg" className="h-12 rounded-xl px-6">
-              <Search /> Search
+            <Button type="submit" variant="brand" size="xl" className="rounded-lg">
+              <Search strokeWidth={3} /> Search
             </Button>
           </div>
         </form>

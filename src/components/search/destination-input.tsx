@@ -1,32 +1,47 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { MapPin, X } from "lucide-react";
+import { MapPin, Navigation, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Destination = { city: string; country: string; count: number };
+
+// Tile tints for the suggestion icons (the reference uses a coloured 48px tile per destination).
+const TINTS = ["bg-teal-50 text-teal-700", "bg-amber-50 text-amber-700", "bg-sky-50 text-sky-700", "bg-rose-50 text-rose-700", "bg-violet-50 text-violet-700", "bg-emerald-50 text-emerald-700"];
 
 /** Accessible combobox: popular destinations on focus, database-backed suggestions while typing. */
 export function DestinationInput({
   value,
   onChange,
   onSelect,
+  onClose,
   className,
   inputClassName,
+  panelClassName,
   autoFocus,
+  inline,
 }: {
   value: string;
   onChange: (value: string) => void;
   onSelect?: (value: string) => void;
+  onClose?: () => void;
   className?: string;
   inputClassName?: string;
+  panelClassName?: string;
   autoFocus?: boolean;
+  /** Render suggestions in the document flow (phone search sheet) instead of a floating panel. */
+  inline?: boolean;
 }) {
   const listId = useId();
-  const [open, setOpen] = useState(false);
+  const [open, setOpenState] = useState(false);
   const [options, setOptions] = useState<Destination[]>([]);
   const [active, setActive] = useState(-1);
   const wrapRef = useRef<HTMLDivElement>(null);
+
+  function setOpen(next: boolean) {
+    setOpenState(next);
+    if (!next) onClose?.();
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -50,16 +65,16 @@ export function DestinationInput({
 
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
-      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
+      if (open && !wrapRef.current?.contains(e.target as Node)) setOpen(false);
     }
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
-  }, []);
+  });
 
   function choose(d: Destination) {
     const label = `${d.city}, ${d.country}`;
     onChange(label);
-    setOpen(false);
+    setOpenState(false);
     onSelect?.(label);
   }
 
@@ -81,13 +96,13 @@ export function DestinationInput({
           value={value}
           onChange={(e) => {
             onChange(e.target.value);
-            setOpen(true);
+            setOpenState(true);
           }}
-          onFocus={() => setOpen(true)}
+          onFocus={() => setOpenState(true)}
           onKeyDown={(e) => {
             if (e.key === "ArrowDown") {
               e.preventDefault();
-              setOpen(true);
+              setOpenState(true);
               setActive((a) => Math.min(options.length - 1, a + 1));
             } else if (e.key === "ArrowUp") {
               e.preventDefault();
@@ -108,21 +123,27 @@ export function DestinationInput({
           <button
             type="button"
             aria-label="Clear destination"
-            className="rounded-full p-1 text-muted-foreground hover:bg-muted"
-            onClick={() => {
+            className="grid size-6 shrink-0 place-items-center rounded-full bg-grey-200 text-foreground hover:bg-grey-300"
+            onClick={(e) => {
+              e.stopPropagation();
               onChange("");
-              setOpen(true);
+              setOpenState(true);
             }}
           >
-            <X className="size-3.5" />
+            <X className="size-3" strokeWidth={3} />
           </button>
         )}
       </div>
       {open && options.length > 0 && (
-        <div className="absolute top-full left-0 z-50 mt-4 w-[min(22rem,calc(100vw-2rem))] rounded-2xl border bg-popover p-2 shadow-xl">
-          <p className="px-3 pt-2 pb-1 text-xs font-medium text-muted-foreground">
-            {value ? "Matching destinations" : "Popular destinations"}
-          </p>
+        <div
+          className={cn(
+            inline
+              ? "kip-fade-in -mx-4 mt-3 border-t border-grey-300 pt-3"
+              : "kip-panel absolute top-full left-0 z-50 mt-4 max-h-[min(540px,70vh)] w-[min(425px,calc(100vw-2rem))] overflow-y-auto rounded-[32px] bg-popover py-6 shadow-elev-4",
+            panelClassName,
+          )}
+        >
+          <p className={cn("pb-2 text-xs font-medium text-foreground", inline ? "px-4" : "px-8")}>{value ? "Matching destinations" : "Suggested destinations"}</p>
           <ul id={listId} role="listbox" aria-label="Destination suggestions">
             {options.map((d, i) => (
               <li
@@ -132,20 +153,17 @@ export function DestinationInput({
                 aria-selected={i === active}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => choose(d)}
-                className={cn(
-                  "flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5",
-                  i === active ? "bg-muted" : "hover:bg-muted",
-                )}
+                className={cn("flex cursor-pointer items-center gap-4 py-2 transition-colors", inline ? "px-4" : "px-8", i === active ? "bg-grey-100" : "hover:bg-grey-100")}
               >
-                <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-secondary">
-                  <MapPin className="size-4" />
+                <span className={cn("grid size-12 shrink-0 place-items-center rounded-xl", TINTS[i % TINTS.length])}>
+                  {i === 0 && !value ? <Navigation className="size-5" /> : <MapPin className="size-5" />}
                 </span>
                 <span className="min-w-0">
-                  <span className="block truncate text-sm font-medium">
+                  <span className="block truncate text-sm font-medium text-foreground">
                     {d.city}, {d.country}
                   </span>
-                  <span className="block truncate text-xs text-muted-foreground">
-                    {d.count} stay{d.count === 1 ? "" : "s"}
+                  <span className="block truncate text-sm text-muted-foreground">
+                    {i === 0 && !value ? "Most stays on Kipstay" : `${d.count} stay${d.count === 1 ? "" : "s"}`}
                   </span>
                 </span>
               </li>

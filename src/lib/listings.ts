@@ -21,6 +21,8 @@ export const cardSelect = {
   avgRating: true,
   reviewCount: true,
   cancellationPolicy: true,
+  latitude: true,
+  longitude: true,
   createdAt: true,
 } satisfies Prisma.ListingSelect;
 
@@ -91,7 +93,7 @@ export async function getListingDetail(id: string) {
   return prisma.listing.findFirst({
     where: { id, isPublished: true },
     include: {
-      host: { select: { id: true, name: true, bio: true, createdAt: true } },
+      host: { select: { id: true, name: true, bio: true, createdAt: true, isHost: true } },
       reviews: {
         orderBy: { createdAt: "desc" },
         take: 6,
@@ -139,4 +141,32 @@ export async function findDestinations(query: string, limit = 8): Promise<Destin
     take: limit,
   });
   return groups.map((g) => ({ city: g.city, country: g.country, count: g._count._all }));
+}
+
+/** Nightly prices (USD) of listings matching every filter except price, for the Filters histogram. */
+export async function priceDistribution(f: SearchFilters): Promise<number[]> {
+  const rows = await prisma.listing.findMany({
+    where: buildSearchWhere({ ...f, minPrice: undefined, maxPrice: undefined }),
+    select: { pricePerNight: true },
+  });
+  return rows.map((r) => Math.round(r.pricePerNight / 100));
+}
+
+export async function countListings(f: SearchFilters): Promise<number> {
+  return prisma.listing.count({ where: buildSearchWhere(f) });
+}
+
+/** Review counts per star rating, ordered 5 → 1. */
+export async function ratingDistribution(listingId: string): Promise<number[]> {
+  const rows = await prisma.review.groupBy({ by: ["rating"], where: { listingId }, _count: { _all: true } });
+  return [5, 4, 3, 2, 1].map((stars) => rows.find((r) => r.rating === stars)?._count._all ?? 0);
+}
+
+/** Aggregate stats for a host across their published listings. */
+export async function hostStats(hostId: string) {
+  const [agg, listings] = await Promise.all([
+    prisma.review.aggregate({ where: { listing: { hostId, isPublished: true } }, _avg: { rating: true }, _count: { _all: true } }),
+    prisma.listing.count({ where: { hostId, isPublished: true } }),
+  ]);
+  return { reviewCount: agg._count._all, rating: agg._avg.rating ?? 0, listings };
 }

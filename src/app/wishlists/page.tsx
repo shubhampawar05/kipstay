@@ -35,8 +35,8 @@ export default async function WishlistsPage() {
   });
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 md:px-6">
-      <h1 className="text-3xl font-semibold tracking-tight">Wishlists</h1>
+    <div className="page-gutter py-10">
+      <h1 className="text-[32px] leading-9 font-semibold">Wishlists</h1>
       <p className="mt-1 text-muted-foreground">
         {items.length} saved place{items.length === 1 ? "" : "s"}
       </p>

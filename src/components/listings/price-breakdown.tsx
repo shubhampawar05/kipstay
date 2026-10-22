@@ -10,14 +10,14 @@ export function PriceBreakdown({ quote }: { quote: Quote }) {
   rows.push(["Taxes", quote.taxes]);
 
   return (
-    <dl className="space-y-3 text-[15px]" data-testid="price-breakdown">
+    <dl className="space-y-4 text-base" data-testid="price-breakdown">
       {rows.map(([label, amount, cls]) => (
         <div key={label} className="flex justify-between gap-4">
-          <dt className="text-muted-foreground">{label}</dt>
+          <dt className="underline decoration-1 underline-offset-2">{label}</dt>
           <dd className={cls}>{amount < 0 ? `−${formatMoney(-amount, { cents: true })}` : formatMoney(amount, { cents: true })}</dd>
         </div>
       ))}
-      <div className="flex justify-between gap-4 border-t pt-3 font-semibold">
+      <div className="flex justify-between gap-4 border-t border-grey-400 pt-6 font-semibold">
         <dt>Total (USD)</dt>
         <dd data-testid="price-total">{formatMoney(quote.total, { cents: true })}</dd>
       </div>

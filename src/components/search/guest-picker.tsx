@@ -8,6 +8,10 @@ export type Guests = { adults: number; children: number; infants: number; pets: 
 
 export const EMPTY_GUESTS: Guests = { adults: 0, children: 0, infants: 0, pets: 0 };
 
+// Reference steppers: 32px outlined circles (#B0B0B0), faint when disabled, press feedback.
+const stepper =
+  "size-8 rounded-full border-grey-600 bg-background text-muted-foreground hover:border-foreground hover:bg-background hover:text-foreground disabled:border-grey-300 disabled:text-grey-400 disabled:opacity-100 press";
+
 const ROWS: { key: keyof Guests; label: string; hint: string; max: number }[] = [
   { key: "adults", label: "Adults", hint: "Ages 13 or above", max: MAX_GUESTS },
   { key: "children", label: "Children", hint: "Ages 2–12", max: MAX_GUESTS },
@@ -47,39 +51,39 @@ export function GuestPicker({
   }
 
   return (
-    <div className="divide-y">
+    <div className="divide-y divide-grey-300">
       {ROWS.filter((r) => r.key !== "pets" || allowsPets).map((row) => {
         const n = value[row.key];
         const atPeopleCap = (row.key === "adults" || row.key === "children") && maxGuests !== undefined && people >= maxGuests;
         const minimum = row.key === "adults" && value.children + value.infants + value.pets > 0 ? 1 : 0;
         return (
-          <div key={row.key} className="flex items-center justify-between gap-6 py-4">
+          <div key={row.key} className="flex items-center justify-between gap-6 py-5">
             <div>
-              <div className="font-medium" id={`guest-${row.key}`}>
+              <div className="text-base leading-5 font-medium" id={`guest-${row.key}`}>
                 {row.label}
               </div>
-              <div className="text-sm text-muted-foreground">{row.hint}</div>
+              <div className="mt-0.5 text-sm text-muted-foreground">{row.hint}</div>
             </div>
             <div className="flex items-center gap-3" role="group" aria-labelledby={`guest-${row.key}`}>
               <Button
                 type="button"
                 variant="outline"
                 size="icon"
-                className="rounded-full"
+                className={stepper}
                 aria-label={`Decrease ${row.label}`}
                 disabled={n <= minimum}
                 onClick={() => update(row.key, -1)}
               >
                 <Minus />
               </Button>
-              <span className="w-6 text-center tabular-nums" aria-live="polite" data-testid={`guest-${row.key}-value`}>
+              <span className="w-6 text-center text-base tabular-nums" aria-live="polite" data-testid={`guest-${row.key}-value`}>
                 {n}
               </span>
               <Button
                 type="button"
                 variant="outline"
                 size="icon"
-                className="rounded-full"
+                className={stepper}
                 aria-label={`Increase ${row.label}`}
                 disabled={n >= row.max || atPeopleCap}
                 onClick={() => update(row.key, 1)}

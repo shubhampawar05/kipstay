@@ -27,6 +27,7 @@ export function WishlistButton({
   function onClick(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
+    if (pending) return;
     startTransition(async () => {
       setOptimistic(!optimistic);
       const result = await toggleWishlist(listingId);
@@ -55,9 +56,9 @@ export function WishlistButton({
         disabled={pending}
         aria-pressed={optimistic}
         aria-label={label}
-        className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium underline-offset-2 hover:bg-muted hover:underline"
+        className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium underline underline-offset-2 transition-colors hover:bg-grey-100 focus-ring"
       >
-        <Heart className={cn("size-4", optimistic && "fill-rose-500 text-rose-500")} />
+        <Heart className={cn("size-4", optimistic && "fill-brand text-brand")} />
         {optimistic ? "Saved" : "Save"}
       </button>
     );
@@ -67,16 +68,17 @@ export function WishlistButton({
     <button
       type="button"
       onClick={onClick}
-      disabled={pending}
       aria-pressed={optimistic}
+      aria-busy={pending}
       aria-label={label}
       data-testid="wishlist-button"
-      className="grid size-9 place-items-center rounded-full transition-transform hover:scale-110 focus-visible:ring-3 focus-visible:ring-white/70 outline-none"
+      className="grid size-8 place-items-center rounded-full outline-none transition-transform duration-250 ease-standard hover:scale-[1.08] active:scale-[0.92] focus-visible:shadow-[var(--focus-ring)]"
     >
       <Heart
+        key={String(optimistic)}
         className={cn(
-          "size-6 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]",
-          optimistic ? "fill-rose-500 text-white" : "fill-black/40 text-white",
+          "size-6 drop-shadow-[0_2px_6px_rgba(0,0,0,0.25)]",
+          optimistic ? "fill-brand text-white motion-safe:animate-[kip-heart-pop_300ms_var(--ease-enter)]" : "fill-black/50 text-white",
         )}
         strokeWidth={2}
       />

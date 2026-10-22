@@ -16,7 +16,7 @@ export function Logo({ className }: { className?: string }) {
   return (
     <Link href="/" className={cn("flex items-center gap-2 rounded-lg focus-visible:ring-3 focus-visible:ring-ring/50 outline-none", className)} aria-label="Kipstay home">
       <LogoMark />
-      <span className="hidden text-xl font-bold tracking-tight text-primary sm:inline">kipstay</span>
+      <span className="hidden text-[22px] font-bold tracking-tight text-brand min-[1128px]:inline">kipstay</span>
     </Link>
   );
 }

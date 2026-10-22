@@ -1,103 +1,150 @@
 import { Suspense } from "react";
-import Link from "next/link";
-import { ChevronRight } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
-import { cardSelect, getWishlistIds } from "@/lib/listings";
+import { cardSelect, getWishlistIds, overlappingBookings } from "@/lib/listings";
+import { CATEGORIES } from "@/lib/constants";
+import { addDays, toISODate, todayUTC } from "@/lib/dates";
 import { CategoryBar } from "@/components/search/category-bar";
 import { ListingCard } from "@/components/listings/listing-card";
-import { GridSkeleton } from "@/components/skeletons";
+import { ListingRow } from "@/components/listings/listing-row";
+import { Skeleton } from "@/components/ui/skeleton";
 
-async function HomeSections() {
+const ROW_SIZE = 10;
+
+/** The coming Friday → Sunday (the reference's "Available … this weekend" row). */
+function nextWeekend() {
+  const today = todayUTC();
+  const friday = addDays(today, (5 - today.getUTCDay() + 7) % 7 || 7);
+  return { checkin: friday, checkout: addDays(friday, 2) };
+}
+
+async function HomeRows() {
   const user = await getCurrentUser();
+  const weekend = nextWeekend();
 
   const topCities = await prisma.listing.groupBy({
     by: ["city", "country"],
     where: { isPublished: true },
     _count: { _all: true },
     orderBy: { _count: { city: "desc" } },
-    take: 3,
+    take: 4,
   });
+  const weekendCity = topCities[0];
 
-  const [favourites, cityRows, saved] = await Promise.all([
+  const [favourites, weekendRow, cityRows, categoryRows, saved] = await Promise.all([
     prisma.listing.findMany({
-      where: { isPublished: true, reviewCount: { gte: 3 } },
+      where: { isPublished: true, reviewCount: { gte: 3 }, avgRating: { gte: 4.9 } },
       select: cardSelect,
       orderBy: [{ avgRating: "desc" }, { reviewCount: "desc" }],
-      take: 8,
+      take: ROW_SIZE,
     }),
-    Promise.all(
-      topCities.map((c) =>
-        prisma.listing.findMany({
-          where: { isPublished: true, city: c.city },
+    weekendCity
+      ? prisma.listing.findMany({
+          where: {
+            isPublished: true,
+            city: weekendCity.city,
+            minNights: { lte: 2 },
+            bookings: { none: overlappingBookings(weekend.checkin, weekend.checkout) },
+          },
           select: cardSelect,
           orderBy: [{ avgRating: "desc" }],
-          take: 4,
-        }),
+          take: ROW_SIZE,
+        })
+      : Promise.resolve([]),
+    Promise.all(
+      topCities
+        .slice(1)
+        .map((c) =>
+          prisma.listing.findMany({ where: { isPublished: true, city: c.city }, select: cardSelect, orderBy: [{ avgRating: "desc" }], take: ROW_SIZE }),
+        ),
+    ),
+    Promise.all(
+      CATEGORIES.slice(0, 4).map((c) =>
+        prisma.listing.findMany({ where: { isPublished: true, category: c.value }, select: cardSelect, orderBy: [{ reviewCount: "desc" }], take: ROW_SIZE }),
       ),
     ),
     getWishlistIds(user?.id),
   ]);
 
+  const weekendQuery = `checkin=${toISODate(weekend.checkin)}&checkout=${toISODate(weekend.checkout)}`;
+
   return (
     <>
-      {topCities.map((c, i) => (
-        <section key={c.city} className="mt-12" aria-labelledby={`city-${i}`}>
-          <div className="mb-4 flex items-end justify-between gap-4">
-            <h2 id={`city-${i}`} className="text-2xl font-semibold tracking-tight">
-              Popular homes in {c.city}
-            </h2>
-            <Link href={`/s?location=${encodeURIComponent(`${c.city}, ${c.country}`)}`} className="flex shrink-0 items-center text-sm font-medium hover:underline">
-              Show all {c._count._all} <ChevronRight className="size-4" />
-            </Link>
-          </div>
-          <div className="scrollbar-none -mx-4 flex snap-x gap-6 overflow-x-auto px-4 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 lg:grid-cols-4">
-            {cityRows[i].map((l, j) => (
-              <div key={l.id} className="w-[78vw] shrink-0 snap-start sm:w-auto">
-                <ListingCard listing={l} saved={saved.has(l.id)} priority={i === 0 && j < 2} />
+      {favourites.length > 0 && (
+        <ListingRow title="Guest favourites" subtitle="The highest-rated stays on Kipstay" href="/s?sort=rating">
+          {favourites.map((l, i) => (
+            <ListingCard key={l.id} listing={l} saved={saved.has(l.id)} variant="compact" priority={i < 4} />
+          ))}
+        </ListingRow>
+      )}
+
+      {weekendCity && weekendRow.length > 0 && (
+        <ListingRow
+          title={`Available in ${weekendCity.city} this weekend`}
+          href={`/s?location=${encodeURIComponent(`${weekendCity.city}, ${weekendCity.country}`)}&${weekendQuery}`}
+        >
+          {weekendRow.map((l) => (
+            <ListingCard
+              key={l.id}
+              listing={l}
+              saved={saved.has(l.id)}
+              variant="compact"
+              stay={{ checkin: weekend.checkin, checkout: weekend.checkout, query: weekendQuery }}
+            />
+          ))}
+        </ListingRow>
+      )}
+
+      {topCities.slice(1).map((c, i) => (
+        <ListingRow key={c.city} title={`Popular homes in ${c.city}`} subtitle={c.country} href={`/s?location=${encodeURIComponent(`${c.city}, ${c.country}`)}`}>
+          {cityRows[i].map((l) => (
+            <ListingCard key={l.id} listing={l} saved={saved.has(l.id)} variant="compact" />
+          ))}
+        </ListingRow>
+      ))}
+
+      {CATEGORIES.slice(0, 4).map((c, i) =>
+        categoryRows[i].length > 0 ? (
+          <ListingRow key={c.value} title={`${c.label} stays`} href={`/s?category=${c.value}`}>
+            {categoryRows[i].map((l) => (
+              <ListingCard key={l.id} listing={l} saved={saved.has(l.id)} variant="compact" />
+            ))}
+          </ListingRow>
+        ) : null,
+      )}
+    </>
+  );
+}
+
+function RowsSkeleton() {
+  return (
+    <div role="status" aria-label="Loading stays" className="mt-8">
+      {[0, 1].map((row) => (
+        <div key={row} className="mt-10">
+          <Skeleton className="h-6 w-64" />
+          <div className="mt-4 grid grid-cols-2 gap-3 min-[744px]:grid-cols-4 min-[1128px]:grid-cols-5 min-[1280px]:grid-cols-6 min-[1440px]:grid-cols-7">
+            {Array.from({ length: 7 }, (_, i) => (
+              <div key={i} className={i > 1 ? "hidden min-[744px]:block" : undefined}>
+                <Skeleton index={i} className="aspect-[20/19] rounded-[20px]" />
+                <Skeleton index={i} className="mt-2 h-3.5 w-3/4" />
+                <Skeleton index={i} className="mt-1.5 h-3.5 w-1/2" />
               </div>
             ))}
           </div>
-        </section>
-      ))}
-
-      <section className="mt-12" aria-labelledby="favourites">
-        <h2 id="favourites" className="mb-4 text-2xl font-semibold tracking-tight">
-          Guest favourites
-        </h2>
-        <div className="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
-          {favourites.map((l) => (
-            <ListingCard key={l.id} listing={l} saved={saved.has(l.id)} />
-          ))}
         </div>
-      </section>
-    </>
+      ))}
+    </div>
   );
 }
 
 export default function HomePage() {
   return (
-    <div className="mx-auto max-w-7xl px-4 md:px-6">
-      <div className="sticky top-20 z-30 -mx-4 border-b bg-background px-4 md:-mx-6 md:px-6">
+    <div className="page-gutter pb-8">
+      <div className="border-b border-grey-300">
         <CategoryBar />
       </div>
-
-      <section className="mt-8 overflow-hidden rounded-3xl bg-gradient-to-br from-primary to-teal-900 px-6 py-12 text-primary-foreground md:px-12">
-        <p className="text-sm font-medium tracking-wide text-teal-100 uppercase">Stays worth the trip</p>
-        <h1 className="mt-2 max-w-xl text-3xl font-bold tracking-tight md:text-5xl">Cabins, lofts and beach houses, booked in minutes.</h1>
-        <p className="mt-4 max-w-lg text-teal-50">
-          Search by destination and dates, compare transparent prices, and save your favourites for later.
-        </p>
-        <Link
-          href="/s"
-          className="mt-6 inline-flex items-center gap-1 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-teal-900 hover:bg-teal-50"
-        >
-          Browse all stays <ChevronRight className="size-4" />
-        </Link>
-      </section>
-
-      <Suspense fallback={<div className="mt-12"><GridSkeleton /></div>}>
-        <HomeSections />
+      <Suspense fallback={<RowsSkeleton />}>
+        <HomeRows />
       </Suspense>
     </div>
   );

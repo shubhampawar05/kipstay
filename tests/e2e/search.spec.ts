@@ -11,14 +11,16 @@ test.describe("search", () => {
     await where.fill("kyo");
     await page.getByRole("option", { name: /Kyoto, Japan/ }).click();
 
-    // Selecting a destination moves straight on to dates; submit without them.
-    await page.keyboard.press("Escape");
+    // Selecting a destination moves straight on to dates (the search stays open); submit without dates.
+    await expect(page.getByRole("button", { name: /^When/ })).toHaveAttribute("aria-expanded", "true");
     await page.getByRole("button", { name: "Search", exact: true }).click();
 
     await expect(page).toHaveURL(/\/s\?location=Kyoto/);
     await expect(page.getByTestId("results-heading")).toContainText("in Kyoto, Japan");
     const cards = page.getByTestId("listing-card");
-    await expect(cards).toHaveCount(3);
+    await expect(cards.first()).toBeVisible();
+    // Every result is in Kyoto.
+    for (const text of await cards.locator("h3").allTextContents()) expect(text).toContain("Kyoto");
 
     await cards.first().locator("a").first().click();
     await expect(page).toHaveURL(/\/rooms\//);
@@ -37,11 +39,14 @@ test.describe("search", () => {
   });
 
   test("filters narrow results and show an empty state", async ({ page }) => {
+    const total = async () => Number((await page.getByTestId("results-heading").textContent())?.match(/^(\d+)/)?.[1] ?? 0);
     await page.goto("/s");
-    const all = await page.getByTestId("listing-card").count();
+    const all = await total();
+    expect(all).toBeGreaterThan(0);
     await page.getByRole("button", { name: "Pool", exact: true }).click();
     await expect(page).toHaveURL(/amenities=Pool/);
-    await expect.poll(() => page.getByTestId("listing-card").count()).toBeLessThan(all);
+    await expect.poll(total).toBeLessThan(all);
+    await expect.poll(total).toBeGreaterThan(0);
 
     await page.goto("/s?location=Atlantis");
     await expect(page.getByRole("heading", { name: "No exact matches" })).toBeVisible();
