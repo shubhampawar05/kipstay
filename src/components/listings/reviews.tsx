@@ -1,9 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, Sparkles, Star } from "lucide-react";
+import { CircleCheck, KeyRound, Loader2, Map as MapIcon, MessageSquare, Sparkles, SprayCan, Star, Tag, type LucideIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+
+export type CategoryScore = { key: string; label: string; avg: number | null };
+
+const CATEGORY_ICONS: Record<string, LucideIcon> = {
+  cleanliness: SprayCan,
+  accuracy: CircleCheck,
+  checkIn: KeyRound,
+  communication: MessageSquare,
+  location: MapIcon,
+  value: Tag,
+};
 
 export type ReviewItem = { id: string; rating: number; comment: string; createdAt: string; author: string; memberSince: string };
 
@@ -63,7 +74,9 @@ export function ReviewsSection({
   distribution,
   initial,
   favourite,
+  categories = [],
 }: {
+  categories?: CategoryScore[];
   listingId: string;
   avgRating: number;
   reviewCount: number;
@@ -130,7 +143,9 @@ export function ReviewsSection({
         </h2>
       )}
 
-      <div className="mt-10 max-w-xs">
+      {/* Reference breakdown: the overall distribution, then one column per category with its score and icon. */}
+      <div className="mt-10 grid grid-cols-2 gap-x-6 gap-y-6 sm:grid-cols-3 lg:grid-cols-7 lg:gap-0" data-testid="rating-breakdown">
+      <div className="col-span-2 sm:col-span-3 lg:col-span-1 lg:pr-6">
         <h3 className="text-sm font-semibold">Overall rating</h3>
         <ul className="mt-2 space-y-1">
           {[5, 4, 3, 2, 1].map((stars, i) => (
@@ -142,6 +157,23 @@ export function ReviewsSection({
             </li>
           ))}
         </ul>
+      </div>
+      {categories
+        .filter((c) => c.avg !== null)
+        .map((c) => {
+          const Icon = CATEGORY_ICONS[c.key] ?? Star;
+          return (
+            <div key={c.key} className="flex flex-col justify-between gap-6 lg:border-l lg:border-grey-400 lg:px-6">
+              <div>
+                <h3 className="text-sm font-semibold">{c.label}</h3>
+                <p className="text-lg font-semibold" aria-label={`${c.label}: ${c.avg!.toFixed(1)} out of 5`}>
+                  {c.avg!.toFixed(1)}
+                </p>
+              </div>
+              <Icon className="size-8" strokeWidth={1.4} aria-hidden />
+            </div>
+          );
+        })}
       </div>
 
       <ul className="mt-10 grid gap-x-24 gap-y-10 md:grid-cols-2">

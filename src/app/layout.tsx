@@ -6,6 +6,7 @@ import { SiteFooter } from "@/components/layout/site-footer";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { HistoryTracker } from "@/components/layout/history-tracker";
 import { getCurrentUser } from "@/lib/auth";
+import { unreadConversationCount } from "@/lib/messages";
 import "./globals.css";
 
 // Open-source geometric sans close to the reference's proprietary face.
@@ -31,7 +32,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           {children}
         </main>
         <SiteFooter />
-        <MobileNav signedIn={!!user} isHost={!!user?.isHost} />
+        <MobileNav signedIn={!!user} unread={user ? await unreadConversationCount(user.id) : 0} />
         <HistoryTracker />
         <Toaster
           position="bottom-center"

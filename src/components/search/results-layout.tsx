@@ -30,13 +30,25 @@ export function HoverTarget({ id, children }: { id: string; children: React.Reac
  * Reference results layout: card list beside a sticky, rounded map (≥1128px). Below that the map is a
  * full-screen view toggled by a floating dark "Show map / Show list" pill.
  */
-export function ResultsLayout({ list, mapListings }: { list: React.ReactNode; mapListings: MapListing[] }) {
+export function ResultsLayout({ list, mapListings, mapArea = false }: { list: React.ReactNode; mapListings: MapListing[]; mapArea?: boolean }) {
   const [mapOpen, setMapOpen] = useState(false);
+  // Desktop "expand map": the list steps aside and the map takes the full width.
+  const [expanded, setExpanded] = useState(false);
   const wide = useMediaQuery("(min-width: 1128px)");
 
   return (
-    <div className="min-[1128px]:grid min-[1128px]:grid-cols-[minmax(0,1fr)_minmax(0,46%)] min-[1128px]:gap-12">
-      <div className={cn(mapOpen && "hidden min-[1128px]:block")}>{list}</div>
+    <div
+      className={cn(
+        "min-[1128px]:grid min-[1128px]:gap-12 min-[1128px]:transition-[grid-template-columns] min-[1128px]:duration-300 min-[1128px]:ease-standard",
+        expanded ? "min-[1128px]:grid-cols-[minmax(0,0fr)_minmax(0,1fr)] min-[1128px]:gap-0" : "min-[1128px]:grid-cols-[minmax(0,1fr)_minmax(0,46%)]",
+      )}
+    >
+      <div
+        className={cn("min-w-0", mapOpen && "hidden min-[1128px]:block", expanded && "min-[1128px]:invisible min-[1128px]:overflow-hidden")}
+        aria-hidden={expanded || undefined}
+      >
+        {list}
+      </div>
       <div
         className={cn(
           "min-[1128px]:sticky min-[1128px]:top-[calc(80px+24px)] min-[1128px]:block min-[1128px]:h-[calc(100dvh-80px-48px)] min-[1440px]:top-[calc(96px+24px)] min-[1440px]:h-[calc(100dvh-96px-48px)]",
@@ -44,7 +56,14 @@ export function ResultsLayout({ list, mapListings }: { list: React.ReactNode; ma
         )}
       >
         <div className="h-full overflow-hidden min-[1128px]:rounded-2xl min-[1128px]:shadow-[0_0_0_1px_rgba(0,0,0,0.05)]">
-          {(mapOpen || wide) && <ResultsMap listings={mapListings} />}
+          {(mapOpen || wide) && (
+            <ResultsMap
+              listings={mapListings}
+              mapArea={mapArea}
+              expanded={expanded}
+              onToggleExpanded={wide ? () => setExpanded((e) => !e) : undefined}
+            />
+          )}
         </div>
       </div>
       <button

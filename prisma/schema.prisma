@@ -8,18 +8,22 @@ datasource db {
 }
 
 model User {
-  id           String         @id @default(cuid())
-  email        String         @unique
-  name         String
-  passwordHash String
-  isHost       Boolean        @default(false)
-  bio          String?
-  createdAt    DateTime       @default(now())
-  sessions     Session[]
-  listings     Listing[]      @relation("HostListings")
-  bookings     Booking[]      @relation("GuestBookings")
-  reviews      Review[]
-  wishlist     WishlistItem[]
+  id                 String         @id @default(cuid())
+  email              String         @unique
+  name               String
+  passwordHash       String
+  isHost             Boolean        @default(false)
+  bio                String?
+  createdAt          DateTime       @default(now())
+  sessions           Session[]
+  listings           Listing[]      @relation("HostListings")
+  bookings           Booking[]      @relation("GuestBookings")
+  reviews            Review[]
+  wishlist           WishlistItem[]
+  wishlists          Wishlist[]
+  guestConversations Conversation[] @relation("GuestConversations")
+  hostConversations  Conversation[] @relation("HostConversations")
+  messages           Message[]
 }
 
 model Session {
@@ -61,9 +65,9 @@ enum CancellationPolicy {
 }
 
 model Listing {
-  id                 String             @id @default(cuid())
+  id                 String              @id @default(cuid())
   hostId             String
-  host               User               @relation("HostListings", fields: [hostId], references: [id], onDelete: Cascade)
+  host               User                @relation("HostListings", fields: [hostId], references: [id], onDelete: Cascade)
   title              String
   description        String
   propertyType       PropertyType
@@ -80,25 +84,26 @@ model Listing {
   /// Nightly price in cents (USD).
   pricePerNight      Int
   /// One-off cleaning fee in cents (USD).
-  cleaningFee        Int                @default(0)
-  minNights          Int                @default(1)
-  allowsPets         Boolean            @default(false)
+  cleaningFee        Int                 @default(0)
+  minNights          Int                 @default(1)
+  allowsPets         Boolean             @default(false)
   amenities          String[]
   images             String[]
-  checkInTime        String             @default("15:00")
-  checkOutTime       String             @default("11:00")
-  houseRules         String             @default("")
-  cancellationPolicy CancellationPolicy @default(FLEXIBLE)
-  isPublished        Boolean            @default(true)
+  checkInTime        String              @default("15:00")
+  checkOutTime       String              @default("11:00")
+  houseRules         String              @default("")
+  cancellationPolicy CancellationPolicy  @default(FLEXIBLE)
+  isPublished        Boolean             @default(true)
   /// Denormalised from Review rows; refreshed whenever a review is written.
-  avgRating          Float              @default(0)
-  reviewCount        Int                @default(0)
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
+  avgRating          Float               @default(0)
+  reviewCount        Int                 @default(0)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
   bookings           Booking[]
   blocks             AvailabilityBlock[]
   reviews            Review[]
   wishlistedBy       WishlistItem[]
+  conversations      Conversation[]
 
   @@index([city])
   @@index([category])
@@ -158,26 +163,82 @@ model AvailabilityBlock {
 }
 
 model Review {
-  id        String   @id @default(cuid())
-  listingId String
-  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
-  authorId  String
-  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  bookingId String?  @unique
-  booking   Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
-  rating    Int
-  comment   String
-  createdAt DateTime @default(now())
+  id            String   @id @default(cuid())
+  listingId     String
+  listing       Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  authorId      String
+  author        User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  bookingId     String?  @unique
+  booking       Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  rating        Int
+  /// Category ratings (1–5), as on the reference's review form. Optional for reviews written before they existed.
+  cleanliness   Int?
+  accuracy      Int?
+  checkIn       Int?
+  communication Int?
+  location      Int?
+  value         Int?
+  comment       String
+  createdAt     DateTime @default(now())
 
   @@index([listingId])
 }
 
-model WishlistItem {
+/// A named list of saved listings ("Save to wishlist" on the reference). A listing can be in several of a user's lists.
+model Wishlist {
+  id        String         @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  listingId String
-  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  items     WishlistItem[]
 
-  @@id([userId, listingId])
+  @@index([userId])
+}
+
+model WishlistItem {
+  wishlistId String
+  wishlist   Wishlist @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
+  /// Denormalised owner, so "is this listing saved by me?" is one indexed lookup.
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listingId  String
+  listing    Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@id([wishlistId, listingId])
+  @@index([userId, listingId])
+}
+
+/// One thread per guest per listing, between that guest and the listing's host.
+model Conversation {
+  id            String    @id @default(cuid())
+  listingId     String
+  listing       Listing   @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  guestId       String
+  guest         User      @relation("GuestConversations", fields: [guestId], references: [id], onDelete: Cascade)
+  hostId        String
+  host          User      @relation("HostConversations", fields: [hostId], references: [id], onDelete: Cascade)
+  createdAt     DateTime  @default(now())
+  lastMessageAt DateTime  @default(now())
+  guestReadAt   DateTime?
+  hostReadAt    DateTime?
+  messages      Message[]
+
+  @@unique([listingId, guestId])
+  @@index([guestId, lastMessageAt])
+  @@index([hostId, lastMessageAt])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  body           String
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId, createdAt])
 }

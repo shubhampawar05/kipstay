@@ -55,6 +55,18 @@ export const searchParamsSchema = z
     bedrooms: z.coerce.number().int().min(0).max(20).optional().catch(undefined),
     sort: z.enum(["recommended", "price_asc", "price_desc", "rating"]).catch("recommended"),
     page: z.coerce.number().int().min(1).max(500).catch(1),
+    /** Map area "south,west,north,east" from "Search as I move the map"; invalid boxes are ignored. */
+    bbox: z
+      .string()
+      .optional()
+      .transform((v) => {
+        const n = v?.split(",").map(Number);
+        if (!n || n.length !== 4 || n.some((x) => !Number.isFinite(x))) return undefined;
+        const [south, west, north, east] = n;
+        if (south < -90 || north > 90 || south >= north || west < -180 || east > 180 || west >= east) return undefined;
+        return { south, west, north, east };
+      })
+      .catch(undefined),
   })
   .transform((s) => {
     // A half-specified or inverted date range is dropped rather than half-applied.
@@ -119,9 +131,17 @@ export const bookingRequestSchema = z
 
 export type BookingRequest = z.infer<typeof bookingRequestSchema>;
 
+const stars = (label: string) => z.coerce.number({ message: `Rate ${label.toLowerCase()}` }).int().min(1, `Rate ${label.toLowerCase()}`).max(5);
+
 export const reviewSchema = z.object({
   bookingId: z.string().min(1).max(40),
   rating: z.coerce.number().int().min(1).max(5),
+  cleanliness: stars("Cleanliness"),
+  accuracy: stars("Accuracy"),
+  checkIn: stars("Check-in"),
+  communication: stars("Communication"),
+  location: stars("Location"),
+  value: stars("Value"),
   comment: z.string().trim().min(10, "Tell future guests a little more (10+ characters)").max(1000),
 });
 

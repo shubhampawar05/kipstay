@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { DateRange } from "react-day-picker";
 import { Search } from "lucide-react";
@@ -68,9 +68,10 @@ function useSearchState(initial: SearchInitial, onSubmitted?: () => void) {
 // Segment styling measured on the reference bar: 15x32 padding, radius 32, #EBEBEB hover fill,
 // white raised segment while its panel is open.
 const segmentBase =
-  "relative flex h-full min-w-0 flex-1 flex-col justify-center rounded-[32px] px-8 text-left outline-none transition-[background-color,box-shadow] duration-200 ease-standard focus-visible:shadow-[var(--focus-ring)]";
+  "relative z-[1] flex h-full min-w-0 flex-1 flex-col justify-center rounded-[32px] px-8 text-left outline-none transition-[background-color,box-shadow] duration-200 ease-standard focus-visible:shadow-[var(--focus-ring)]";
 const segmentIdle = "hover:bg-grey-300";
-const segmentActive = "bg-background shadow-elev-3 hover:bg-background";
+// The active segment's white raised pill is the shared sliding indicator drawn behind the segments.
+const segmentActive = "hover:bg-transparent";
 const label = "text-xs leading-4 font-medium text-foreground";
 const value = "truncate text-sm leading-[18px]";
 
@@ -84,29 +85,64 @@ export function SearchBar({
   className,
   initialPanel,
   onSubmitted,
-  onActiveChange,
+  collapsed,
 }: {
   initial?: SearchInitial;
   className?: string;
   /** Segment to open on mount, e.g. when expanded from the compact header pill. */
   initialPanel?: SearchPanel;
   onSubmitted?: () => void;
-  /** Lets the header keep the full search open while the user is editing it. */
-  onActiveChange?: (active: boolean) => void;
+  /** Set when the bar has scrolled out of view under the header; any open panel closes. */
+  collapsed?: boolean;
 }) {
   const s = useSearchState(initial, onSubmitted);
   const [panel, setPanel] = useState<SearchPanel | null>(initialPanel ?? null);
   const whereRef = useRef<HTMLDivElement>(null);
+  const whenRef = useRef<HTMLButtonElement>(null);
+  const whoRef = useRef<HTMLDivElement>(null);
+  const indicatorRef = useRef<HTMLSpanElement>(null);
+  const wasOpen = useRef(false);
+
+  // Reference motion: one white pill slides between Where / When / Who instead of each segment lighting up.
+  // Positioned with transform + width (absolutely positioned, so nothing else reflows).
+  useLayoutEffect(() => {
+    const indicator = indicatorRef.current;
+    if (!indicator) return;
+    const place = () => {
+      const target = panel === "where" ? whereRef.current : panel === "when" ? whenRef.current : panel === "who" ? whoRef.current : null;
+      if (!target) {
+        indicator.style.opacity = "0";
+        wasOpen.current = false;
+        return;
+      }
+      // Appearing: jump into place and fade in; moving between segments: slide.
+      indicator.style.transitionProperty = wasOpen.current ? "transform, width, opacity" : "opacity";
+      indicator.style.transform = `translateX(${target.offsetLeft}px)`;
+      indicator.style.width = `${target.offsetWidth}px`;
+      indicator.style.opacity = "1";
+      wasOpen.current = true;
+    };
+    place();
+    window.addEventListener("resize", place);
+    return () => window.removeEventListener("resize", place);
+  }, [panel]);
   const active = panel !== null;
 
   useEffect(() => {
     if (initialPanel === "where") whereRef.current?.querySelector("input")?.focus();
   }, [initialPanel]);
 
+  // Panels anchored to a bar that has scrolled away would float over the header, so collapsing closes them
+  // (state adjusted during render; the effect only moves focus out of the hidden bar).
+  const formRef = useRef<HTMLFormElement>(null);
+  const [wasCollapsed, setWasCollapsed] = useState(collapsed);
+  if (collapsed !== wasCollapsed) {
+    setWasCollapsed(collapsed);
+    if (collapsed) setPanel(null);
+  }
   useEffect(() => {
-    onActiveChange?.(active);
-  }, [active, onActiveChange]);
-  useEffect(() => () => onActiveChange?.(false), [onActiveChange]);
+    if (collapsed && formRef.current?.contains(document.activeElement)) (document.activeElement as HTMLElement).blur();
+  }, [collapsed]);
 
   // Closing a panel by clicking the search button would otherwise shrink the button mid-click,
   // so it stays wide briefly after the bar goes inactive.
@@ -122,11 +158,13 @@ export function SearchBar({
 
   return (
     <form
+      ref={formRef}
       role="search"
       aria-label="Search stays"
       data-active={active}
       className={cn(
         "flex h-[66px] w-full max-w-[850px] items-center rounded-[32px] border border-grey-400 bg-background shadow-search transition-colors duration-200 ease-standard data-[active=true]:border-transparent data-[active=true]:bg-grey-300",
+        "relative",
         className,
       )}
       onSubmit={(e) => {
@@ -135,6 +173,11 @@ export function SearchBar({
         s.submit();
       }}
     >
+      <span
+        ref={indicatorRef}
+        aria-hidden
+        className="pointer-events-none absolute inset-y-[-1px] left-0 rounded-[32px] bg-background opacity-0 shadow-elev-3 duration-300 ease-standard"
+      />
       <div
         ref={whereRef}
         className={cn(segmentBase, "cursor-text", panel === "where" ? segmentActive : segmentIdle)}
@@ -155,7 +198,7 @@ export function SearchBar({
       <Divider hidden={panel === "where" || panel === "when"} />
 
       <Popover open={panel === "when"} onOpenChange={(open) => setPanel(open ? "when" : null)}>
-        <PopoverTrigger className={cn(segmentBase, panel === "when" ? segmentActive : segmentIdle)} aria-label={`When: ${s.datesLabel ?? "Add dates"}`}>
+        <PopoverTrigger ref={whenRef} className={cn(segmentBase, panel === "when" ? segmentActive : segmentIdle)} aria-label={`When: ${s.datesLabel ?? "Add dates"}`}>
           <span className={label}>When</span>
           <span className={cn(value, s.datesLabel ? "text-foreground" : "text-muted-foreground")}>{s.datesLabel ?? "Add dates"}</span>
         </PopoverTrigger>
@@ -180,7 +223,7 @@ export function SearchBar({
 
       <Divider hidden={panel === "when" || panel === "who"} />
 
-      <div className={cn(segmentBase, "flex-row items-center gap-2 pr-2", panel === "who" ? segmentActive : segmentIdle)}>
+      <div ref={whoRef} className={cn(segmentBase, "flex-row items-center gap-2 pr-2", panel === "who" ? segmentActive : segmentIdle)}>
         <Popover open={panel === "who"} onOpenChange={(open) => setPanel(open ? "who" : null)}>
           <PopoverTrigger
             className="flex h-full min-w-0 flex-1 flex-col justify-center rounded-[32px] text-left outline-none focus-visible:underline"

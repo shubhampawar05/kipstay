@@ -112,4 +112,31 @@ test.describe("round-3 interactions", () => {
     await expect(calm.locator('[data-reveal="pending"]')).toHaveCount(0);
     await reduced.close();
   });
+
+  test("home header collapses once while scrolling, with no bounce or height change", async ({ page }) => {
+    await page.goto("/");
+    const header = page.locator("header");
+    const startHeight = await header.evaluate((el) => (el as HTMLElement).offsetHeight);
+    const samples = await page.evaluate(async () => {
+      const out: { y: number; actual: number; compact: boolean; height: number }[] = [];
+      const pill = [...document.querySelectorAll("header [aria-hidden]")].find((e) => e.querySelector('[role="search"]'))!;
+      for (let y = 0; y <= 300; y += 10) {
+        window.scrollTo(0, y);
+        await new Promise((r) => setTimeout(r, 60));
+        out.push({
+          y,
+          actual: Math.round(window.scrollY),
+          compact: pill.getAttribute("aria-hidden") !== "true",
+          height: document.querySelector("header")!.offsetHeight,
+        });
+      }
+      return out;
+    });
+    // The page never jumps away from where it was scrolled (the old collapse made scroll anchoring bounce it).
+    for (const s of samples) expect(s.actual).toBe(s.y);
+    expect(new Set(samples.map((s) => s.height))).toEqual(new Set([startHeight]));
+    const switches = samples.filter((s, i) => i > 0 && s.compact !== samples[i - 1].compact).length;
+    expect(switches).toBe(1);
+    expect(samples.at(-1)!.compact).toBe(true);
+  });
 });

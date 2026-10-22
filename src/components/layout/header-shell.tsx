@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Logo } from "@/components/brand/logo";
@@ -10,12 +10,11 @@ import { HeaderBigSearch, HeaderCompactSearch, HeaderMobileSearch } from "./head
 import { UserMenu, type MenuUser } from "./user-menu";
 
 const NO_SEARCH = ["/login", "/signup", "/host", "/book", "/account"];
-const COLLAPSE_AT = 40;
 
 function useScrolled() {
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > COLLAPSE_AT);
+    const onScroll = () => setScrolled(window.scrollY > 0);
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
@@ -24,25 +23,45 @@ function useScrolled() {
 }
 
 /**
+ * True once `target` has scrolled up under the sticky header bar. Observed rather than derived from scrollY, and the
+ * band never changes height, so the switch can't feed back into the scroll position (the old height collapse made
+ * Chrome's scroll anchoring bounce the page and the header flicker between states).
+ */
+function useHiddenUnderHeader(target: React.RefObject<HTMLElement | null>, enabled: boolean) {
+  const [hidden, setHidden] = useState(false);
+  useEffect(() => {
+    const el = target.current;
+    if (!enabled || !el) return;
+    const io = new IntersectionObserver(([entry]) => setHidden(!entry.isIntersecting), { rootMargin: "-96px 0px 0px 0px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [target, enabled]);
+  return enabled && hidden;
+}
+
+/**
  * Header behaviour measured on the reference:
- * - 80px tall (96px from 1440px), inline padding 24 / 32 (≥950) / 48 (≥1440), sticky.
- * - Home: a white→#F8F8F8 band with the big search; scrolling collapses it to a compact pill.
+ * - 80px tall (96px from 1440px), inline padding 24 / 32 (≥950) / 48 (≥1440), sticky. The bar's height never changes.
+ * - Home: a white→#F8F8F8 band with the big search sits in the page flow below the bar and scrolls away under it;
+ *   once the big pill is under the bar, the compact pill fades in.
  * - Other pages: compact pill; clicking a segment expands the full search over a dimmed page.
  */
 export function HeaderShell({ user }: { user: MenuUser }) {
   const pathname = usePathname();
   const scrolled = useScrolled();
   const [forced, setForced] = useState<{ panel: SearchPanel; path: string } | null>(null);
-  const [editing, setEditing] = useState(false);
   const showSearch = !NO_SEARCH.some((p) => pathname.startsWith(p));
   const isHome = pathname === "/";
   const hosting = pathname.startsWith("/host");
   const isListing = pathname.startsWith("/rooms/");
-  // A forced expansion belongs to the page it was opened on, so navigating closes it.
-  const forcedPanel = forced && forced.path === pathname ? forced.panel : null;
-  // Keep the band open while a search panel is in use, even if the page scrolls underneath it.
-  const bandOpen = showSearch && isHome && (!scrolled || editing) && !forcedPanel;
+  const hasBand = showSearch && isHome;
+  const bigPill = useRef<HTMLDivElement>(null);
+  const bandHidden = useHiddenUnderHeader(bigPill, hasBand);
+  // A forced expansion belongs to the page (and, on home, the scrolled state) it was opened in.
+  const forcedPanel = forced && forced.path === pathname && (!hasBand || bandHidden) ? forced.panel : null;
   const overlayOpen = showSearch && forcedPanel !== null;
+  const compactVisible = showSearch && !overlayOpen && (!hasBand || bandHidden);
+  const elevated = hasBand ? bandHidden : scrolled;
 
   useEffect(() => {
     if (!overlayOpen) return;
@@ -65,11 +84,12 @@ export function HeaderShell({ user }: { user: MenuUser }) {
     <>
       <header
         className={cn(
-          "sticky top-0 z-40 border-b border-grey-300 transition-[background-color,box-shadow] duration-300 ease-standard",
-          bandOpen ? "bg-gradient-to-b from-white to-[#f8f8f8]" : "bg-background",
+          "sticky top-0 z-40 border-b bg-background transition-[border-color,box-shadow] duration-300 ease-standard",
+          // On home the bar blends into the band below it until the band has scrolled away.
+          hasBand && !bandHidden ? "border-grey-300 md:border-transparent" : "border-grey-300",
           isListing && "max-md:border-b-0",
-          // Shadow only (no size change) once the page scrolls, so the sticky header never shifts layout.
-          scrolled && !overlayOpen && "shadow-[0_1px_12px_rgba(0,0,0,0.08)]",
+          // Shadow only (no size change), so the sticky header never shifts layout.
+          elevated && !overlayOpen && "shadow-[0_1px_12px_rgba(0,0,0,0.08)]",
         )}
       >
         {/* Phones: just the search pill, as on the reference. Listing pages go edge to edge with their own back bar. */}
@@ -87,13 +107,25 @@ export function HeaderShell({ user }: { user: MenuUser }) {
           <div className="flex flex-1 items-center">
             <Logo />
           </div>
-          <div className="flex min-w-0 shrink justify-center">
-            {showSearch && !bandOpen && !overlayOpen && (
-              <Suspense>
-                <HeaderCompactSearch pathname={pathname} onOpen={(panel) => setForced({ panel, path: pathname })} />
-              </Suspense>
+          <div className="relative flex min-w-0 shrink justify-center">
+            {showSearch && (
+              // Always mounted on search pages, so showing it is a crossfade rather than a mount that pops in.
+              <div
+                inert={!compactVisible}
+                aria-hidden={!compactVisible}
+                className={cn(
+                  "transition-[opacity,transform] duration-250 ease-standard",
+                  compactVisible ? "opacity-100" : "pointer-events-none translate-y-2 scale-95 opacity-0",
+                )}
+              >
+                <Suspense>
+                  <HeaderCompactSearch pathname={pathname} onOpen={(panel) => setForced({ panel, path: pathname })} />
+                </Suspense>
+              </div>
             )}
-            {overlayOpen && <span className="text-base font-medium">Search stays</span>}
+            {overlayOpen && (
+              <span className="kip-fade-in absolute inset-0 grid place-items-center text-base font-medium whitespace-nowrap">Search stays</span>
+            )}
           </div>
           <nav aria-label="Account" className="flex flex-1 items-center justify-end gap-2">
             <Link
@@ -106,24 +138,35 @@ export function HeaderShell({ user }: { user: MenuUser }) {
           </nav>
         </div>
 
-        {/* Big search: in the home band, or as an overlay panel when expanded from the compact pill. */}
-        {showSearch && (bandOpen || overlayOpen) && (
+        {/* Big search expanded from the compact pill: an overlay panel under the bar. */}
+        {overlayOpen && (
           <div
             className={cn(
-              "hidden justify-center md:flex",
+              "kip-fade-in absolute inset-x-0 top-full hidden justify-center border-b border-grey-300 bg-gradient-to-b from-white to-[#f8f8f8] pt-2 pb-8 md:flex",
               rowPadding,
-              overlayOpen ? "kip-fade-in absolute inset-x-0 top-full border-b border-grey-300 bg-gradient-to-b from-white to-[#f8f8f8] pt-2 pb-8" : "pb-8",
             )}
           >
             <Suspense fallback={<div className="kip-shimmer h-[66px] w-full max-w-[850px] rounded-[32px]" />}>
-              <HeaderBigSearch pathname={pathname} initialPanel={forcedPanel ?? undefined} onSubmitted={() => setForced(null)} onActiveChange={setEditing} />
+              <HeaderBigSearch pathname={pathname} initialPanel={forcedPanel ?? undefined} onSubmitted={() => setForced(null)} />
             </Suspense>
           </div>
         )}
       </header>
-      {overlayOpen && (
-        <div aria-hidden className="kip-fade-in fixed inset-0 z-30 hidden bg-black/25 md:block" onClick={() => setForced(null)} />
+
+      {/* Home band: normal page flow under the sticky bar, so scrolling it away never changes the page height. */}
+      {hasBand && (
+        <div className={cn("hidden justify-center border-b border-grey-300 bg-gradient-to-b from-white to-[#f8f8f8] pb-8 md:flex", rowPadding)}>
+          {/* Inert while under the bar: an off-screen copy of the search shouldn't take focus or duplicate the
+              compact pill's expanded search for assistive tech. */}
+          <div ref={bigPill} inert={bandHidden} aria-hidden={bandHidden} className="flex w-full max-w-[850px] justify-center">
+            <Suspense fallback={<div className="kip-shimmer h-[66px] w-full max-w-[850px] rounded-[32px]" />}>
+              <HeaderBigSearch pathname={pathname} collapsed={bandHidden} />
+            </Suspense>
+          </div>
+        </div>
       )}
+
+      {overlayOpen && <div aria-hidden className="kip-fade-in fixed inset-0 z-30 hidden bg-black/25 md:block" onClick={() => setForced(null)} />}
     </>
   );
 }

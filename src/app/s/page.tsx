@@ -48,7 +48,7 @@ export default async function SearchPage({ searchParams }: PageProps<"/s">) {
   for (const k of ["adults", "children", "infants", "pets"] as const) if (filters[k]) stayQuery.set(k, String(filters[k]));
   const query = stayQuery.toString();
 
-  const place = filters.location ?? "all destinations";
+  const place = filters.bbox ? "the map area" : (filters.location ?? "all destinations");
   const when = filters.checkin && filters.checkout ? ` · ${formatStayRange(filters.checkin, filters.checkout)}` : "";
 
   const mapListings = listings
@@ -116,7 +116,7 @@ export default async function SearchPage({ searchParams }: PageProps<"/s">) {
   return (
     <div className="page-gutter">
       <ResultsFilterBar prices={prices} total={total} />
-      <ResultsLayout list={list} mapListings={mapListings} />
+      <ResultsLayout list={list} mapListings={mapListings} mapArea={!!filters.bbox} />
     </div>
   );
 }

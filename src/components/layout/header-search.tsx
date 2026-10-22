@@ -25,15 +25,16 @@ export function HeaderBigSearch({
   pathname,
   initialPanel,
   onSubmitted,
-  onActiveChange,
+  collapsed,
 }: {
   pathname: string;
   initialPanel?: SearchPanel;
   onSubmitted?: () => void;
-  onActiveChange?: (active: boolean) => void;
+  /** The band holding this search has scrolled under the header: close any open panel. */
+  collapsed?: boolean;
 }) {
   const { initial, key } = useSearchInitial(pathname);
-  return <SearchBar key={key + (initialPanel ?? "")} initial={initial} initialPanel={initialPanel} onSubmitted={onSubmitted} onActiveChange={onActiveChange} />;
+  return <SearchBar key={key + (initialPanel ?? "")} initial={initial} initialPanel={initialPanel} onSubmitted={onSubmitted} collapsed={collapsed} />;
 }
 
 export function HeaderCompactSearch({ pathname, onOpen }: { pathname: string; onOpen: (panel: SearchPanel) => void }) {

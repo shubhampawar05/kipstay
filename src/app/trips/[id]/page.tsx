@@ -6,7 +6,7 @@ import { CheckCircle2 } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatStayDate, todayUTC } from "@/lib/dates";
-import { CANCELLATION_POLICIES } from "@/lib/constants";
+import { CANCELLATION_POLICIES, REVIEW_CATEGORIES } from "@/lib/constants";
 import { PriceBreakdown } from "@/components/listings/price-breakdown";
 import { Badge } from "@/components/ui/badge";
 import { CancelButton } from "./cancel-button";
@@ -104,6 +104,9 @@ export default async function TripPage({ params, searchParams }: PageProps<"/tri
             ) : (
               <p className="text-sm text-muted-foreground">The host has unpublished this listing.</p>
             )}
+            <Link href={`/messages/new?listing=${booking.listingId}`} className="rounded-sm text-sm font-semibold underline focus-ring">
+              Message host
+            </Link>
           </div>
           {canCancel && (
             <div className="mt-6">
@@ -142,10 +145,22 @@ export default async function TripPage({ params, searchParams }: PageProps<"/tri
         </section>
       )}
       {booking.review && (
-        <section className="mt-10 rounded-2xl border p-6">
-          <h2 className="text-xl font-semibold">Your review</h2>
-          <p className="mt-2">{"★".repeat(booking.review.rating)}</p>
-          <p className="mt-1 text-muted-foreground">{booking.review.comment}</p>
+        <section className="kip-fade-in mt-10 rounded-2xl border p-6" aria-labelledby="posted-review-heading" data-testid="posted-review">
+          <h2 id="posted-review-heading" className="text-xl font-semibold">
+            Your review
+          </h2>
+          <p className="mt-2" aria-label={`Overall ${booking.review.rating} out of 5`}>
+            {"★".repeat(booking.review.rating)}
+          </p>
+          <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-3">
+            {REVIEW_CATEGORIES.filter((c) => booking.review![c.key] !== null).map((c) => (
+              <div key={c.key} className="flex justify-between gap-2">
+                <dt className="text-muted-foreground">{c.label}</dt>
+                <dd className="font-medium">{booking.review![c.key]}/5</dd>
+              </div>
+            ))}
+          </dl>
+          <p className="mt-3 text-muted-foreground">{booking.review.comment}</p>
         </section>
       )}
     </div>

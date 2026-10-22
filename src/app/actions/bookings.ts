@@ -8,6 +8,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { cancelBooking, createBooking, refreshListingRating } from "@/lib/bookings";
 import { todayUTC } from "@/lib/dates";
 import { bookingRequestSchema, fieldErrors, reviewSchema } from "@/lib/validation";
+import { REVIEW_CATEGORIES } from "@/lib/constants";
 
 export type ActionState = { error?: string; errors?: Record<string, string>; ok?: boolean; values?: Record<string, string> } | undefined;
 
@@ -44,7 +45,7 @@ export async function cancelAction(bookingId: string): Promise<ActionState> {
 export async function reviewAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await getCurrentUser();
   if (!user) return { error: "Log in to write a review." };
-  const values = { rating: String(formData.get("rating") ?? ""), comment: String(formData.get("comment") ?? "") };
+  const values = Object.fromEntries(["rating", "comment", ...REVIEW_CATEGORIES.map((c) => c.key)].map((k) => [k, String(formData.get(k) ?? "")]));
   const parsed = reviewSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { errors: fieldErrors(parsed.error), values };
 
@@ -56,7 +57,7 @@ export async function reviewAction(_prev: ActionState, formData: FormData): Prom
   try {
     await prisma.$transaction(async (tx) => {
       await tx.review.create({
-        data: { listingId: booking.listingId, authorId: user.id, bookingId: booking.id, rating: parsed.data.rating, comment: parsed.data.comment },
+        data: { ...parsed.data, listingId: booking.listingId, authorId: user.id, bookingId: booking.id },
       });
       await refreshListingRating(booking.listingId, tx);
     });

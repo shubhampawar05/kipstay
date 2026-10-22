@@ -138,11 +138,17 @@ const reviewTexts = [
   "The host's local tips made our trip. Clean, cosy and very well maintained.",
 ];
 
+const CATEGORY_KEYS = ["cleanliness", "accuracy", "checkIn", "communication", "location", "value"] as const;
+
 async function main() {
   console.log("Clearing existing data…");
   await prisma.$transaction([
+    prisma.message.deleteMany(),
+    prisma.conversation.deleteMany(),
     prisma.review.deleteMany(),
     prisma.wishlistItem.deleteMany(),
+    prisma.wishlist.deleteMany(),
+    prisma.availabilityBlock.deleteMany(),
     prisma.booking.deleteMany(),
     prisma.listing.deleteMany(),
     prisma.session.deleteMany(),
@@ -209,7 +215,16 @@ async function main() {
         data: { listingId: listing.id, guestId: author.id, checkIn, checkOut, adults: 2, nights: q.nights, nightlyPrice: q.nightlyPrice, subtotal: q.subtotal, discount: q.discount, cleaningFee: q.cleaningFee, serviceFee: q.serviceFee, taxes: q.taxes, total: q.total, paymentRef: `mock_seed_${index}_${r}` },
       });
       await prisma.review.create({
-        data: { listingId: listing.id, authorId: author.id, bookingId: booking.id, rating: (index + r) % 5 === 0 ? 4 : 5, comment: reviewTexts[(index + r) % reviewTexts.length], createdAt: addDays(checkOut, 2) },
+        data: {
+          listingId: listing.id,
+          authorId: author.id,
+          bookingId: booking.id,
+          rating: (index + r) % 5 === 0 ? 4 : 5,
+          // Deterministic category scores, mostly 5 with the odd 4, so listings get distinct breakdowns.
+          ...Object.fromEntries(CATEGORY_KEYS.map((k, c) => [k, (index + r + c) % 7 === 0 ? 4 : 5])),
+          comment: reviewTexts[(index + r) % reviewTexts.length],
+          createdAt: addDays(checkOut, 2),
+        },
       });
     }
 
@@ -239,7 +254,25 @@ async function main() {
     data: { listingId: first.id, guestId: guest.id, checkIn, checkOut, adults: 2, nights: q.nights, nightlyPrice: q.nightlyPrice, subtotal: q.subtotal, discount: q.discount, cleaningFee: q.cleaningFee, serviceFee: q.serviceFee, taxes: q.taxes, total: q.total, paymentRef: "mock_seed_demo" },
   });
   const saved = await prisma.listing.findFirstOrThrow({ where: { title: "Glacier View A-Frame" } });
-  await prisma.wishlistItem.create({ data: { userId: guest.id, listingId: saved.id } });
+  const list = await prisma.wishlist.create({ data: { userId: guest.id, name: "Mountain escapes" } });
+  await prisma.wishlistItem.create({ data: { wishlistId: list.id, userId: guest.id, listingId: saved.id } });
+
+  // ...and one conversation with the host of their upcoming trip.
+  await prisma.conversation.create({
+    data: {
+      listingId: first.id,
+      guestId: guest.id,
+      hostId: first.hostId,
+      lastMessageAt: addDays(new Date(), -1),
+      guestReadAt: new Date(),
+      messages: {
+        create: [
+          { senderId: guest.id, body: "Hi! Is there somewhere to leave our bags if we arrive before check-in?", createdAt: addDays(new Date(), -2) },
+          { senderId: first.hostId, body: "Of course. There's a luggage room by the entrance; I'll send the code the day before you arrive.", createdAt: addDays(new Date(), -1) },
+        ],
+      },
+    },
+  });
 
   console.log(`Seeded ${listings.length} listings, ${3 + reviewers.length} users.`);
 }
