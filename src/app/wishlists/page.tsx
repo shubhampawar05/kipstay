@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { cardSelect } from "@/lib/listings";
 import { ListingCard, ListingGrid } from "@/components/listings/listing-card";
+import { Reveal } from "@/components/motion/reveal";
 import { EmptyState } from "@/components/empty-state";
 import { buttonVariants } from "@/components/ui/button";
 
@@ -55,8 +56,10 @@ export default async function WishlistsPage() {
           </EmptyState>
         ) : (
           <ListingGrid>
-            {items.map((i) => (
-              <ListingCard key={i.listingId} listing={i.listing} saved />
+            {items.map((i, n) => (
+              <Reveal key={i.listingId} index={n % 4}>
+                <ListingCard listing={i.listing} saved />
+              </Reveal>
             ))}
           </ListingGrid>
         )}

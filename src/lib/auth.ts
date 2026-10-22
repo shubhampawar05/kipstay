@@ -82,11 +82,12 @@ const attempts = new Map<string, { count: number; resetAt: number }>();
 const MAX_ATTEMPTS = 8;
 const WINDOW_MS = 15 * 60 * 1000;
 
-export function isRateLimited(key: string): boolean {
+/** `factor` scales the limit for coarser buckets (e.g. per email across all IPs). */
+export function isRateLimited(key: string, factor = 1): boolean {
   const now = Date.now();
   const entry = attempts.get(key);
   if (!entry || entry.resetAt < now) return false;
-  return entry.count >= MAX_ATTEMPTS;
+  return entry.count >= MAX_ATTEMPTS * factor;
 }
 
 export function recordFailedAttempt(key: string) {

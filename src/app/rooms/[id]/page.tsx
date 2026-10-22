@@ -6,7 +6,7 @@ import { Check, Clock, DoorOpen, KeyRound, PawPrint, ShieldCheck, Sparkles, Star
 import { getCurrentUser } from "@/lib/auth";
 import { getBookedRanges, getListingDetail, getWishlistIds, hostStats, ratingDistribution } from "@/lib/listings";
 import { CANCELLATION_POLICIES, propertyTypeLabel } from "@/lib/constants";
-import { addDays, formatStayDate, toISODate } from "@/lib/dates";
+import { toISODate } from "@/lib/dates";
 import { normaliseGuests } from "@/lib/validation";
 import { PhotoGallery } from "@/components/listings/photo-gallery";
 import { StayProvider } from "@/components/listings/stay-context";
@@ -18,7 +18,6 @@ import { PdpSubnav } from "@/components/listings/pdp-subnav";
 import { ReviewsSection } from "@/components/listings/reviews";
 import { InfoDialog } from "@/components/listings/info-dialog";
 import { LocationMap } from "@/components/listings/location-map";
-import { fromISO } from "@/lib/search-url";
 
 export async function generateMetadata({ params }: PageProps<"/rooms/[id]">): Promise<Metadata> {
   const listing = await getListingDetail((await params).id);
@@ -45,11 +44,6 @@ export default async function ListingPage({ params, searchParams }: PageProps<"/
   const policy = CANCELLATION_POLICIES[listing.cancellationPolicy];
   const hostYears = Math.max(1, new Date().getFullYear() - listing.host.createdAt.getFullYear());
   const favourite = listing.avgRating >= 4.9 && listing.reviewCount >= 3;
-  const checkin = fromISO(str(sp.checkin));
-  const cancelNote =
-    checkin && checkin > new Date()
-      ? `Free cancellation before ${formatStayDate(addDays(new Date(Date.UTC(checkin.getFullYear(), checkin.getMonth(), checkin.getDate())), -policy.daysBefore), { month: "long", day: "numeric" })}`
-      : undefined;
   const rules = listing.houseRules.split("\n").filter(Boolean);
   const saveButton = (
     <Suspense>
@@ -73,7 +67,16 @@ export default async function ListingPage({ params, searchParams }: PageProps<"/
           </div>
         </div>
 
-        <PhotoGallery images={listing.images} title={listing.title} saveSlot={saveButton} />
+        <PhotoGallery
+          images={listing.images}
+          title={listing.title}
+          saveSlot={saveButton}
+          mobileSaveSlot={
+            <Suspense>
+              <WishlistButton listingId={listing.id} title={listing.title} saved={saved.has(listing.id)} variant="circle" />
+            </Suspense>
+          }
+        />
 
         <div className="mt-6 grid gap-x-[8%] lg:grid-cols-[58%_minmax(0,1fr)] md:mt-8">
           <div className="min-w-0">
@@ -219,7 +222,7 @@ export default async function ListingPage({ params, searchParams }: PageProps<"/
 
           <aside className="hidden lg:block" aria-label="Booking">
             <div className="sticky top-28 pt-8">
-              <BookingWidget pricePerNight={listing.pricePerNight} freeCancellationNote={cancelNote} />
+              <BookingWidget pricePerNight={listing.pricePerNight} cancelDaysBefore={policy.daysBefore} />
             </div>
           </aside>
         </div>

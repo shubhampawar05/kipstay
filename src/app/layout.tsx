@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { MobileNav } from "@/components/layout/mobile-nav";
+import { HistoryTracker } from "@/components/layout/history-tracker";
 import { getCurrentUser } from "@/lib/auth";
 import "./globals.css";
 
@@ -31,6 +32,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         </main>
         <SiteFooter />
         <MobileNav signedIn={!!user} isHost={!!user?.isHost} />
+        <HistoryTracker />
         <Toaster
           position="bottom-center"
           toastOptions={{ classNames: { toast: "!rounded-xl !border-grey-300 !bg-background !text-sm !font-medium !text-foreground !shadow-elev-3" } }}

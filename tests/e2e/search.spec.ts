@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { openCard } from "./helpers";
 
 test.describe("search", () => {
   test("destination autocomplete → results → listing detail", async ({ page }) => {
@@ -22,7 +23,7 @@ test.describe("search", () => {
     // Every result is in Kyoto.
     for (const text of await cards.locator("h3").allTextContents()) expect(text).toContain("Kyoto");
 
-    await cards.first().locator("a").first().click();
+    await openCard(cards.first());
     await expect(page).toHaveURL(/\/rooms\//);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await expect(page.getByRole("heading", { name: "What this place offers" })).toBeVisible();

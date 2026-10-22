@@ -185,9 +185,10 @@ export function FiltersDialog({ prices, total }: { prices: number[]; total: numb
     const controller = new AbortController();
     const t = setTimeout(() => {
       fetch(`/api/listings/count?${draftKey}`, { signal: controller.signal })
-        .then((r) => r.json())
-        .then((d) => setCount(d.count))
-        .catch(() => {});
+        .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+        .then((d) => setCount(typeof d.count === "number" ? d.count : null))
+        // Unknown count: the button falls back to "Show places" instead of a stale number.
+        .catch((e) => e.name !== "AbortError" && setCount(null));
     }, 200);
     return () => {
       clearTimeout(t);
@@ -295,32 +296,16 @@ export function FiltersDialog({ prices, total }: { prices: number[]; total: numb
               <div className="mt-4 flex items-center justify-between gap-6">
                 <label className="flex flex-col items-center gap-2 text-xs text-muted-foreground">
                   Minimum
-                  <span className="flex h-14 min-w-28 items-center justify-center rounded-full border border-grey-600 px-4 text-base text-foreground">
+                  <span className="flex h-14 min-w-28 items-center justify-center rounded-full border border-grey-600 px-4 text-base text-foreground focus-within:border-foreground focus-within:shadow-[inset_0_0_0_1px_#222]">
                     $
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      className="w-16 bg-transparent text-center outline-none"
-                      value={lo}
-                      min={floor}
-                      max={hi - 1}
-                      onChange={(e) => setLo(Math.max(floor, Math.min(Number(e.target.value) || floor, hi - 1)))}
-                    />
+                    <PriceInput value={lo} min={floor} max={hi - 1} fallback={floor} onCommit={setLo} />
                   </span>
                 </label>
                 <label className="flex flex-col items-center gap-2 text-xs text-muted-foreground">
                   Maximum
-                  <span className="flex h-14 min-w-28 items-center justify-center rounded-full border border-grey-600 px-4 text-base text-foreground">
+                  <span className="flex h-14 min-w-28 items-center justify-center rounded-full border border-grey-600 px-4 text-base text-foreground focus-within:border-foreground focus-within:shadow-[inset_0_0_0_1px_#222]">
                     $
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      className="w-16 bg-transparent text-center outline-none"
-                      value={hi}
-                      min={lo + 1}
-                      max={ceiling}
-                      onChange={(e) => setHi(Math.min(ceiling, Math.max(Number(e.target.value) || ceiling, lo + 1)))}
-                    />
+                    <PriceInput value={hi} min={lo + 1} max={ceiling} fallback={ceiling} onCommit={setHi} />
                     {hi >= ceiling && "+"}
                   </span>
                 </label>
@@ -411,5 +396,37 @@ export function SortSelect({ value }: { value: string }) {
         <option value="rating">Top rated</option>
       </select>
     </label>
+  );
+}
+
+/**
+ * Typed price bound: free typing while focused, clamped into [min, max] on blur or Enter (clamping on every
+ * keystroke would snap "1" to the floor before "120" could be typed).
+ */
+function PriceInput({ value, min, max, fallback, onCommit }: { value: number; min: number; max: number; fallback: number; onCommit: (v: number) => void }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const commit = () => {
+    if (draft === null) return;
+    const n = Number(draft);
+    onCommit(Math.max(min, Math.min(Number.isFinite(n) && draft !== "" ? Math.round(n) : fallback, max)));
+    setDraft(null);
+  };
+  return (
+    <input
+      type="number"
+      inputMode="numeric"
+      className="w-16 rounded-sm bg-transparent text-center outline-none focus-visible:underline"
+      value={draft ?? value}
+      min={min}
+      max={max}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          commit();
+        }
+      }}
+    />
   );
 }

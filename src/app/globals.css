@@ -297,6 +297,34 @@
   animation: kip-fade-in 250ms linear both;
 }
 
+/*
+ * Route change: opacity only, so fixed/sticky descendants never get a transformed containing block, and no fill
+ * after it ends, so the wrapper stops being a stacking context and z-indexes inside the page behave normally.
+ */
+.kip-page-in {
+  animation: kip-fade-in 220ms var(--ease-standard) backwards;
+}
+
+/*
+ * Viewport reveal (components/motion/reveal.tsx). Server HTML is always visible; on mount, only elements that start
+ * below the fold are marked pending (hidden), then fade and lift in once they scroll into view. Group items stagger
+ * by --reveal-index in 60ms steps. Reduced motion skips the effect entirely.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  .kip-reveal[data-reveal="pending"],
+  .kip-reveal-group[data-reveal="pending"] .kip-reveal-item {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  .kip-reveal[data-reveal="in"],
+  .kip-reveal-group[data-reveal="in"] .kip-reveal-item {
+    transition:
+      opacity 450ms var(--ease-standard),
+      transform 550ms var(--ease-enter);
+    transition-delay: calc(min(var(--reveal-index, 0), 7) * 60ms);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -366,6 +394,20 @@
   opacity: 1;
 }
 .kip-calendar.kip-calendar-strike .rdp-disabled:not(.rdp-outside) .rdp-day_button {
+  text-decoration: line-through;
+}
+
+/* Host calendar: booked nights tinted with the brand, host-blocked nights hatched. */
+.kip-calendar .kip-day-booked:not(.rdp-outside) .rdp-day_button,
+.kip-swatch-booked {
+  background-color: color-mix(in oklab, var(--brand) 22%, white);
+  color: var(--brand-strong);
+  opacity: 1;
+}
+.kip-calendar .kip-day-blocked:not(.rdp-outside) .rdp-day_button,
+.kip-swatch-blocked {
+  background-image: repeating-linear-gradient(135deg, var(--grey-300) 0 4px, var(--grey-100) 4px 8px);
+  color: var(--text-secondary);
   text-decoration: line-through;
 }
 

@@ -97,9 +97,13 @@ export default async function TripPage({ params, searchParams }: PageProps<"/tri
             {policy.label} cancellation policy: free cancellation until {policy.daysBefore} day{policy.daysBefore === 1 ? "" : "s"} before check-in.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
-            <Link href={`/rooms/${booking.listingId}`} className="text-sm font-semibold underline">
-              View listing
-            </Link>
+            {booking.listing.isPublished ? (
+              <Link href={`/rooms/${booking.listingId}`} className="rounded-sm text-sm font-semibold underline focus-ring">
+                View listing
+              </Link>
+            ) : (
+              <p className="text-sm text-muted-foreground">The host has unpublished this listing.</p>
+            )}
           </div>
           {canCancel && (
             <div className="mt-6">

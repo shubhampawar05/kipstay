@@ -15,7 +15,12 @@ const ResultsMap = dynamic(() => import("./results-map").then((m) => m.ResultsMa
 /** Reports card hover to the map so the matching price pin highlights. */
 export function HoverTarget({ id, children }: { id: string; children: React.ReactNode }) {
   return (
-    <div onMouseEnter={() => emitListingHover(id)} onMouseLeave={() => emitListingHover(null)} onFocus={() => emitListingHover(id)}>
+    <div
+      onMouseEnter={() => emitListingHover(id)}
+      onMouseLeave={() => emitListingHover(null)}
+      onFocus={() => emitListingHover(id)}
+      onBlur={(e) => !e.currentTarget.contains(e.relatedTarget as Node | null) && emitListingHover(null)}
+    >
       {children}
     </div>
   );
@@ -45,6 +50,7 @@ export function ResultsLayout({ list, mapListings }: { list: React.ReactNode; ma
       <button
         type="button"
         onClick={() => setMapOpen((o) => !o)}
+        aria-pressed={mapOpen}
         className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full bg-foreground px-5 py-3.5 text-sm font-semibold text-background shadow-elev-2 transition-transform duration-200 ease-standard hover:scale-[1.04] active:scale-[0.96] focus-ring md:bottom-8 min-[1128px]:hidden"
       >
         {mapOpen ? (

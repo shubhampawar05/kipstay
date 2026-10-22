@@ -127,6 +127,44 @@ upcoming trip and one saved listing, and the hosts own the 26 seeded listings.
 - **Motion:** measured easing (`cubic-bezier(.2,0,0,1)`), press feedback (heart 1.08/0.92, arrows 30/28 and 26/28),
   shimmer skeletons (1.3 s, staggered 100 ms), sheet and dialog entrances, all disabled under `prefers-reduced-motion`.
 
+### Round 3: interactions and motion
+
+- **Motion:**
+  - Rows and cards below the fold fade and lift in on scroll, using one shared IntersectionObserver with a 60 ms stagger. Content already on screen is never hidden, so first paint and hydration are unaffected.
+  - Routes fade in (opacity only).
+  - The header gains a shadow on scroll, without changing size.
+  - On phones, the bottom tab bar slides away while you scroll down and returns when you scroll up (one reading per frame).
+  - Cards zoom their photo and lift on hover.
+  - Every effect is off under `prefers-reduced-motion`.
+- **Card photo carousel:** a scroll-snap track, so it can be swiped on touch screens and slides smoothly with the arrows. The
+  dots follow the photo, and photos after the first lazy-load.
+- **Wishlist without leaving the page:** a logged-out heart opens "Log in or sign up" in a dialog, as on the reference. Log
+  in or sign up inside it and the save completes in place (`AuthForm` `onSuccess`; the server action skips its redirect).
+- **Phone listing page:** photos run edge to edge, with Back (returns to your search), Share and Save floating on top and a live
+  photo counter. The reserve bar replaces the tab bar.
+- **Host calendar (`/host/listings/[id]/calendar`):**
+  - Block nights, with an optional private note, and reopen them. Booked nights are shown.
+  - Blocks are owner-scoped and validated on the server: no past dates, at most 365 nights, never over a live booking or
+    another block.
+  - A PostgreSQL exclusion constraint prevents overlapping blocks. A listing row lock serialises blocks against bookings.
+  - Search, the "this weekend" row, quotes and checkout all treat blocked nights as unavailable.
+- **URL state:**
+  - Dates and guests chosen on a listing page are written to the URL with `replaceState`, so refresh, back and Share keep
+    them.
+  - An out-of-range `?page=` redirects to the last page.
+- **Hardening from an audit pass:**
+  - Listings with any reservation history can't be deleted; unpublish them instead. The delete runs under the listing lock,
+    so trips and receipts survive.
+  - Cancellation is a conditional update, so there are no double cancels.
+  - Raw ids are validated.
+  - Login is rate-limited per email as well as per email+IP.
+  - The review form keeps its input after a validation error.
+  - The price inputs in Filters no longer clamp while you type.
+  - The live count and "more reviews" show error states.
+  - Focus rings appear on the booking-widget and search triggers.
+  - Outside-click listeners only run while the list is open, and carousel edge checks run at most once per frame.
+  - A hidden table header no longer widens the host dashboard on phones.
+
 ## Project layout
 
 ```
@@ -139,14 +177,15 @@ tests/unit         pricing/validation specs + a DB integration test for the over
 tests/e2e          search, auth, booking, wishlist, host, mobile
 ```
 
-## Verification status (2026-10-22, branch `feature/reference-match`)
+## Verification status (2026-10-22, round 3)
 
 | Check | Result |
 |---|---|
 | `npm run lint` | ✅ no warnings or errors |
 | `npm run typecheck` | ✅ no errors |
 | `npm run build` | ✅ succeeds (all routes dynamic) |
-| `npx playwright test` | ✅ 29 passed, 2 skipped (31 tests: 8 unit/integration, 21 desktop e2e, 2 mobile e2e; the 2 skips are the mobile specs inside the desktop project) |
+| `npx playwright test` | ✅ 38 passed, 4 skipped (9 unit/integration, 25 desktop e2e, 4 mobile e2e; the skips are the mobile specs inside the desktop project) |
+| Responsive sweep | ✅ 16 pages × 375/390/768/1280/1440 px: no horizontal overflow; no console errors except the intentional 404 |
 
 The e2e suite covers:
 - **Search:** autocomplete through results to a listing; date-aware availability and discounts; filters; empty state; capacity; 404.
@@ -158,6 +197,15 @@ The e2e suite covers:
 - **Mobile:** tab bar and search sheet; reserve bar.
 - **Round 2 features:** profile edit; password change signing out other sessions; reviews dialog; photo tour and viewer;
   host profile; Filters dialog live count; map price pins; header collapse and re-expand.
+- **Round 3:**
+  - Host calendar: block → guests refused (quote and search) → reopen.
+  - Listing dates in the URL survive a reload.
+  - Back and forward between results and listing.
+  - Card carousel; dropdown closes on Escape (focus returns to the trigger) and on outside click.
+  - Scroll reveal and reduced motion.
+  - Wishlist login dialog (Escape, then sign up in place).
+  - Phone: the photo track is the touch target, and Back returns to the search.
+  - DB constraint test for host blocks.
 
 ## Not implemented / known limitations
 
@@ -167,7 +215,8 @@ The e2e suite covers:
   [tile policy](https://operations.osmfoundation.org/policies/tiles/)). Set `NEXT_PUBLIC_MAP_TILE_URL` to a tile provider
   you're licensed for in production. There's no clustering or search-as-you-move-the-map.
 - **Photo uploads:** hosts paste image URLs (or use the bundled artwork). There's no file storage integration.
-- **Not built:** messaging between guests and hosts, host calendar blocking, multiple named wishlists, social login,
+- **Host calendar** blocks whole nights only. There's no per-night pricing, and no iCal import or export.
+- **Not built:** messaging between guests and hosts, multiple named wishlists, social login,
   email verification, password reset, "Flexible dates" search, per-category review ratings, Experiences/Services verticals.
 - **Rate limiting** is in-memory per server instance; use a shared store (for example Redis) for multi-instance deployments.
 - **Currency:** USD only. Date math is calendar-day based (UTC); the date picker renders client-side to use the viewer's local "today".

@@ -38,9 +38,14 @@ export function DestinationInput({
   const [active, setActive] = useState(-1);
   const wrapRef = useRef<HTMLDivElement>(null);
 
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+
   function setOpen(next: boolean) {
     setOpenState(next);
-    if (!next) onClose?.();
+    if (!next) onCloseRef.current?.();
   }
 
   useEffect(() => {
@@ -63,13 +68,17 @@ export function DestinationInput({
     };
   }, [value, open]);
 
+  // Outside click closes the list; only listens while it's open.
   useEffect(() => {
+    if (!open) return;
     function onDocClick(e: MouseEvent) {
-      if (open && !wrapRef.current?.contains(e.target as Node)) setOpen(false);
+      if (wrapRef.current?.contains(e.target as Node)) return;
+      setOpenState(false);
+      onCloseRef.current?.();
     }
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
-  });
+  }, [open]);
 
   function choose(d: Destination) {
     const label = `${d.city}, ${d.country}`;

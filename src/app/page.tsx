@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
-import { cardSelect, getWishlistIds, overlappingBookings } from "@/lib/listings";
+import { availableFor, cardSelect, getWishlistIds } from "@/lib/listings";
 import { CATEGORIES } from "@/lib/constants";
 import { addDays, toISODate, todayUTC } from "@/lib/dates";
 import { CategoryBar } from "@/components/search/category-bar";
@@ -44,7 +44,7 @@ async function HomeRows() {
             isPublished: true,
             city: weekendCity.city,
             minNights: { lte: 2 },
-            bookings: { none: overlappingBookings(weekend.checkin, weekend.checkout) },
+            ...availableFor(weekend.checkin, weekend.checkout),
           },
           select: cardSelect,
           orderBy: [{ avgRating: "desc" }],

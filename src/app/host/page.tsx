@@ -101,7 +101,7 @@ async function HostDashboard({ user, notice }: { user: CurrentUser; notice: stri
         {reservations.length === 0 ? (
           <p className="rounded-2xl border p-6 text-muted-foreground">No upcoming reservations yet.</p>
         ) : (
-          <div className="overflow-x-auto rounded-2xl border">
+          <div className="relative overflow-x-auto rounded-2xl border">
             <table className="w-full text-left text-sm">
               <thead className="bg-muted/50 text-xs text-muted-foreground uppercase">
                 <tr>
