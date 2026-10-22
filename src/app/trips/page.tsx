@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { Reveal } from "@/components/motion/reveal";
 import { Luggage } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
@@ -53,22 +54,22 @@ async function TripsList({ userId }: { userId: string }) {
   }
 
   const groups = [
-    { title: "Upcoming", items: upcoming },
-    { title: "Where you've been", items: past },
-    { title: "Cancelled", items: cancelled },
+    { id: "upcoming", title: "Upcoming", items: upcoming },
+    { id: "past", title: "Where you've been", items: past },
+    { id: "cancelled", title: "Cancelled", items: cancelled },
   ].filter((g) => g.items.length);
 
   return (
     <div className="page-gutter py-10">
       <h1 className="text-[32px] leading-9 font-semibold">Trips</h1>
       {groups.map((g) => (
-        <section key={g.title} className="mt-8" aria-labelledby={`trips-${g.title}`}>
-          <h2 id={`trips-${g.title}`} className="mb-4 text-xl font-semibold">
+        <section key={g.title} className="mt-8" aria-labelledby={`trips-${g.id}`}>
+          <h2 id={`trips-${g.id}`} className="mb-4 text-xl font-semibold">
             {g.title}
           </h2>
           <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {g.items.map((b) => (
-              <li key={b.id}>
+            {g.items.map((b, i) => (
+              <Reveal as="li" key={b.id} index={i % 3}>
                 <Link href={`/trips/${b.id}`} className="flex gap-4 rounded-2xl border border-grey-400 p-3 shadow-elev-1 transition-shadow duration-200 hover:shadow-elev-2 focus-ring" data-testid="trip-card">
                   <div className="relative size-24 shrink-0 overflow-hidden rounded-xl bg-muted">
                     <Image src={b.listing.images[0]} alt="" fill unoptimized className="object-cover" />
@@ -85,7 +86,7 @@ async function TripsList({ userId }: { userId: string }) {
                     </p>
                   </div>
                 </Link>
-              </li>
+              </Reveal>
             ))}
           </ul>
         </section>

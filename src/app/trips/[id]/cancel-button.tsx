@@ -25,14 +25,19 @@ export function CancelButton({ bookingId, label = "Cancel reservation" }: { book
           <Button
             variant="destructive"
             disabled={pending}
+            aria-busy={pending}
             onClick={() =>
               start(async () => {
-                const result = await cancelAction(bookingId);
-                if (result?.error) toast.error(result.error);
-                else {
-                  toast("Reservation cancelled");
-                  setOpen(false);
-                  router.refresh();
+                try {
+                  const result = await cancelAction(bookingId);
+                  if (result?.error) toast.error(result.error);
+                  else {
+                    toast("Reservation cancelled");
+                    setOpen(false);
+                    router.refresh();
+                  }
+                } catch {
+                  toast.error("Couldn't cancel right now. Check your connection and try again.");
                 }
               })
             }

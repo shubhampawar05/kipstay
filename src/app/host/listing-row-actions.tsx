@@ -13,11 +13,15 @@ export function ListingRowActions({ id, isPublished }: { id: string; isPublished
 
   const run = (fn: () => Promise<{ ok?: boolean; error?: string }>, success: string) =>
     start(async () => {
-      const result = await fn();
-      if (result.error) toast.error(result.error);
-      else {
-        toast(success);
-        router.refresh();
+      try {
+        const result = await fn();
+        if (result.error) toast.error(result.error);
+        else {
+          toast(success);
+          router.refresh();
+        }
+      } catch {
+        toast.error("Something went wrong. Check your connection and try again.");
       }
     });
 
@@ -30,6 +34,9 @@ export function ListingRowActions({ id, isPublished }: { id: string; isPublished
       )}
       <Link href={`/host/listings/${id}/edit`} className={buttonVariants({ variant: "outline", size: "sm" })}>
         Edit
+      </Link>
+      <Link href={`/host/listings/${id}/calendar`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+        Calendar
       </Link>
       <Button
         variant="outline"
@@ -44,7 +51,7 @@ export function ListingRowActions({ id, isPublished }: { id: string; isPublished
         size="sm"
         disabled={pending}
         onClick={() => {
-          if (confirm("Delete this listing permanently? Past reservations for it will be removed too.")) run(() => deleteListingAction(id), "Listing deleted");
+          if (confirm("Delete this listing permanently? Listings with reservations can only be unpublished.")) run(() => deleteListingAction(id), "Listing deleted");
         }}
       >
         Delete

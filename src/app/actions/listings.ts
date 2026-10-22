@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
-import { todayUTC } from "@/lib/dates";
+import { z } from "zod";
+import { lockListing } from "@/lib/bookings";
 import { fieldErrors, listingSchema } from "@/lib/validation";
 
 export type ListingFormState =
@@ -63,9 +64,12 @@ export async function updateListingAction(listingId: string, _prev: ListingFormS
   redirect("/host?updated=1");
 }
 
+const idSchema = z.string().min(1).max(40);
+
 export async function setPublishedAction(listingId: string, isPublished: boolean) {
   const user = await getCurrentUser();
   if (!user) return { error: "Log in again." };
+  if (!idSchema.safeParse(listingId).success || typeof isPublished !== "boolean") return { error: "Listing not found." };
   const { count } = await prisma.listing.updateMany({ where: { id: listingId, hostId: user.id }, data: { isPublished } });
   if (count === 0) return { error: "Listing not found." };
   revalidatePath("/host");
@@ -73,19 +77,29 @@ export async function setPublishedAction(listingId: string, isPublished: boolean
   return { ok: true };
 }
 
+/**
+ * Deletes a listing that has never been booked. Bookings and reviews cascade with their listing, so a listing with
+ * any reservation history is kept (guests' trips and receipts stay intact) and must be unpublished instead.
+ * The check and delete run under the listing row lock that booking creation also takes.
+ */
 export async function deleteListingAction(listingId: string) {
   const user = await getCurrentUser();
   if (!user) return { error: "Log in again." };
-  const listing = await prisma.listing.findFirst({ where: { id: listingId, hostId: user.id }, select: { id: true } });
-  if (!listing) return { error: "Listing not found." };
+  if (!idSchema.safeParse(listingId).success) return { error: "Listing not found." };
 
-  const upcoming = await prisma.booking.count({
-    where: { listingId, status: "CONFIRMED", checkOut: { gt: todayUTC() } },
+  const result = await prisma.$transaction(async (tx) => {
+    const listing = await tx.listing.findFirst({ where: { id: listingId, hostId: user.id }, select: { id: true } });
+    if (!listing) return { error: "Listing not found." };
+    await lockListing(tx, listing.id);
+    const bookings = await tx.booking.count({ where: { listingId } });
+    if (bookings > 0) {
+      return {
+        error: `This listing has ${bookings} reservation${bookings === 1 ? "" : "s"} on record, so it can't be deleted. Unpublish it instead.`,
+      };
+    }
+    await tx.listing.delete({ where: { id: listingId } });
+    return { ok: true };
   });
-  if (upcoming > 0) {
-    return { error: `This listing has ${upcoming} upcoming reservation${upcoming === 1 ? "" : "s"}. Unpublish it instead, or cancel them first.` };
-  }
-  await prisma.listing.delete({ where: { id: listingId } });
-  revalidatePath("/host");
-  return { ok: true };
+  if (result.ok) revalidatePath("/host");
+  return result;
 }

@@ -75,15 +75,20 @@ export function ReviewsSection({
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   async function loadMore() {
     setLoading(true);
+    setLoadError(false);
     try {
       const res = await fetch(`/api/listings/${listingId}/reviews?page=${page}`);
+      if (!res.ok) throw new Error(String(res.status));
       const data = await res.json();
       setAll((a) => [...a, ...data.reviews]);
       setHasMore(data.hasMore);
       setPage((p) => p + 1);
+    } catch {
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -166,7 +171,15 @@ export function ReviewsSection({
               ))}
             </ul>
             {loading && <Loader2 className="mx-auto mt-6 size-6 animate-spin text-muted-foreground" aria-label="Loading reviews" />}
-            {!loading && hasMore && all.length > 0 && (
+            {!loading && loadError && (
+              <div role="alert" className="mt-6 rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                Couldn&apos;t load reviews.{" "}
+                <button type="button" onClick={loadMore} className="rounded-sm font-semibold underline focus-ring">
+                  Try again
+                </button>
+              </div>
+            )}
+            {!loading && !loadError && hasMore && all.length > 0 && (
               <button type="button" onClick={loadMore} className="mt-8 w-full rounded-lg border border-foreground py-3 font-semibold hover:bg-grey-100 focus-ring">
                 Show more reviews
               </button>

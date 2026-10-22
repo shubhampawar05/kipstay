@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { BadgeDollarSign, SearchX } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { getWishlistIds, priceDistribution, searchListings } from "@/lib/listings";
@@ -12,6 +13,7 @@ import { Pagination } from "@/components/search/pagination";
 import { HoverTarget, ResultsLayout } from "@/components/search/results-layout";
 import { ListingCard } from "@/components/listings/listing-card";
 import { EmptyState } from "@/components/empty-state";
+import { Reveal } from "@/components/motion/reveal";
 import { buttonVariants } from "@/components/ui/button";
 
 export async function generateMetadata({ searchParams }: PageProps<"/s">): Promise<Metadata> {
@@ -28,6 +30,14 @@ export default async function SearchPage({ searchParams }: PageProps<"/s">) {
     getWishlistIds(user?.id),
     priceDistribution(filters),
   ]);
+
+  // A stale or hand-edited ?page= past the end goes to the last real page instead of an empty one.
+  if (total > 0 && filters.page > pageCount) {
+    const last = new URLSearchParams();
+    for (const [k, v] of Object.entries(raw)) if (k !== "page") for (const item of [v].flat()) last.append(k, item);
+    if (pageCount > 1) last.set("page", String(pageCount));
+    redirect(`/s${last.size ? `?${last}` : ""}`);
+  }
 
   // Carry the stay forward to detail pages so dates and guests stay pre-filled.
   const stayQuery = new URLSearchParams();
@@ -89,7 +99,9 @@ export default async function SearchPage({ searchParams }: PageProps<"/s">) {
         <div className="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 min-[1128px]:grid-cols-2 min-[1640px]:grid-cols-3">
           {listings.map((l, i) => (
             <HoverTarget key={l.id} id={l.id}>
-              <ListingCard listing={l} saved={saved.has(l.id)} priority={i < 4} stay={{ checkin: filters.checkin, checkout: filters.checkout, query }} />
+              <Reveal index={i % 3}>
+                <ListingCard listing={l} saved={saved.has(l.id)} priority={i < 4} stay={{ checkin: filters.checkin, checkout: filters.checkout, query }} />
+              </Reveal>
             </HoverTarget>
           ))}
         </div>

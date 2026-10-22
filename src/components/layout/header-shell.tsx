@@ -36,6 +36,8 @@ export function HeaderShell({ user }: { user: MenuUser }) {
   const [editing, setEditing] = useState(false);
   const showSearch = !NO_SEARCH.some((p) => pathname.startsWith(p));
   const isHome = pathname === "/";
+  const hosting = pathname.startsWith("/host");
+  const isListing = pathname.startsWith("/rooms/");
   // A forced expansion belongs to the page it was opened on, so navigating closes it.
   const forcedPanel = forced && forced.path === pathname ? forced.panel : null;
   // Keep the band open while a search panel is in use, even if the page scrolls underneath it.
@@ -63,12 +65,15 @@ export function HeaderShell({ user }: { user: MenuUser }) {
     <>
       <header
         className={cn(
-          "sticky top-0 z-40 border-b border-grey-300 transition-[background-color] duration-300 ease-standard",
+          "sticky top-0 z-40 border-b border-grey-300 transition-[background-color,box-shadow] duration-300 ease-standard",
           bandOpen ? "bg-gradient-to-b from-white to-[#f8f8f8]" : "bg-background",
+          isListing && "max-md:border-b-0",
+          // Shadow only (no size change) once the page scrolls, so the sticky header never shifts layout.
+          scrolled && !overlayOpen && "shadow-[0_1px_12px_rgba(0,0,0,0.08)]",
         )}
       >
-        {/* Phones: just the search pill, as on the reference. */}
-        <div className={cn("flex items-center gap-3 py-3.5 md:hidden", rowPadding, !showSearch && "py-3")}>
+        {/* Phones: just the search pill, as on the reference. Listing pages go edge to edge with their own back bar. */}
+        <div className={cn("flex items-center gap-3 py-3.5 md:hidden", rowPadding, !showSearch && "py-3", isListing && "hidden")}>
           {showSearch ? (
             <Suspense fallback={<div className="kip-shimmer h-14 w-full rounded-full" />}>
               <HeaderMobileSearch pathname={pathname} />
@@ -92,10 +97,10 @@ export function HeaderShell({ user }: { user: MenuUser }) {
           </div>
           <nav aria-label="Account" className="flex flex-1 items-center justify-end gap-2">
             <Link
-              href="/host"
+              href={hosting ? "/" : "/host"}
               className="hidden rounded-full px-3 py-[11px] text-sm leading-[18px] font-medium transition-colors duration-200 hover:bg-grey-200 focus-ring min-[1128px]:block"
             >
-              {user?.isHost ? "Switch to hosting" : "Become a host"}
+              {hosting ? "Switch to travelling" : user?.isHost ? "Switch to hosting" : "Become a host"}
             </Link>
             <UserMenu user={user} />
           </nav>

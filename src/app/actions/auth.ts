@@ -15,7 +15,8 @@ import {
 } from "@/lib/auth";
 import { fieldErrors, loginSchema, safeNextPath, signupSchema } from "@/lib/validation";
 
-export type AuthState = { errors?: Record<string, string>; values?: { name?: string; email?: string } } | undefined;
+/** `ok` is only returned for in-place forms (the login dialog), which refresh the page themselves instead of redirecting. */
+export type AuthState = { ok?: true; errors?: Record<string, string>; values?: { name?: string; email?: string } } | undefined;
 
 export async function signup(_prev: AuthState, formData: FormData): Promise<AuthState> {
   const raw = { name: formData.get("name"), email: formData.get("email"), password: formData.get("password") };
@@ -37,6 +38,7 @@ export async function signup(_prev: AuthState, formData: FormData): Promise<Auth
   }
 
   await createSession(userId);
+  if (formData.get("inline") === "1") return { ok: true };
   redirect(safeNextPath(formData.get("next")));
 }
 
@@ -47,19 +49,25 @@ export async function login(_prev: AuthState, formData: FormData): Promise<AuthS
   if (!parsed.success) return { errors: fieldErrors(parsed.error), values };
 
   const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
+  // Two buckets: per email+IP, and per email alone (generous), since x-forwarded-for can be rotated by a client
+  // unless a trusted proxy overwrites it.
   const key = `${parsed.data.email}|${ip}`;
-  if (isRateLimited(key)) {
+  const emailKey = `email:${parsed.data.email}`;
+  if (isRateLimited(key) || isRateLimited(emailKey, 3)) {
     return { errors: { form: "Too many attempts. Please wait 15 minutes and try again." }, values };
   }
 
   const user = await verifyCredentials(parsed.data.email, parsed.data.password);
   if (!user) {
     recordFailedAttempt(key);
+    recordFailedAttempt(emailKey);
     return { errors: { form: "That email and password don't match an account." }, values };
   }
 
   clearAttempts(key);
+  clearAttempts(emailKey);
   await createSession(user.id);
+  if (formData.get("inline") === "1") return { ok: true };
   redirect(safeNextPath(formData.get("next")));
 }
 

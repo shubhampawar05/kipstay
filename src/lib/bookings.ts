@@ -3,7 +3,7 @@ import { randomBytes } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "./db";
 import { nightsBetween, todayUTC } from "./dates";
-import { overlappingBookings } from "./listings";
+import { overlappingBlocks, overlappingBookings } from "./listings";
 import { calculateQuote, MAX_NIGHTS, type Quote } from "./pricing";
 import type { BookingRequest } from "./validation";
 
@@ -34,13 +34,23 @@ export async function checkStay(req: BookingRequest, userId: string | null, db: 
     return { ok: false, error: `This place allows up to ${listing.maxGuests} guests (infants don't count).` };
   if (req.pets > 0 && !listing.allowsPets) return { ok: false, error: "This place doesn't allow pets." };
 
-  const clash = await db.booking.findFirst({
-    where: { listingId: listing.id, ...overlappingBookings(req.checkIn, req.checkOut) },
-    select: { id: true },
-  });
+  const [clash, blocked] = await Promise.all([
+    db.booking.findFirst({ where: { listingId: listing.id, ...overlappingBookings(req.checkIn, req.checkOut) }, select: { id: true } }),
+    db.availabilityBlock.findFirst({ where: { listingId: listing.id, ...overlappingBlocks(req.checkIn, req.checkOut) }, select: { id: true } }),
+  ]);
   if (clash) return { ok: false, error: "Those dates are no longer available." };
+  if (blocked) return { ok: false, error: "The host has closed some of those nights." };
 
   return { ok: true, quote: calculateQuote(listing, req.checkIn, req.checkOut), listing };
+}
+
+/**
+ * Serialises writes that change a listing's availability (bookings and host blocks). The booking exclusion constraint
+ * already stops booking/booking races; this row lock also stops a booking and a block from both committing over the
+ * same nights.
+ */
+export async function lockListing(tx: Prisma.TransactionClient, listingId: string) {
+  await tx.$queryRaw`SELECT "id" FROM "Listing" WHERE "id" = ${listingId} FOR UPDATE`;
 }
 
 export type CreateBookingResult = { ok: true; bookingId: string } | { ok: false; error: string };
@@ -55,6 +65,7 @@ export async function createBooking(req: BookingRequest, guestId: string): Promi
   try {
     return await prisma.$transaction(
       async (tx) => {
+        await lockListing(tx, req.listingId);
         const check = await checkStay(req, guestId, tx);
         if (!check.ok) return check;
         const { quote } = check;
@@ -106,7 +117,12 @@ export async function cancelBooking(bookingId: string, userId: string): Promise<
   if (booking.status === "CANCELLED") return { ok: false, error: "This reservation is already cancelled." };
   if (booking.checkIn <= todayUTC()) return { ok: false, error: "Stays that have started can't be cancelled online." };
 
-  await prisma.booking.update({ where: { id: bookingId }, data: { status: "CANCELLED", cancelledAt: new Date() } });
+  // Conditional update: a concurrent cancel, or the stay starting in the meantime, matches zero rows.
+  const { count } = await prisma.booking.updateMany({
+    where: { id: bookingId, status: "CONFIRMED", checkIn: { gt: todayUTC() } },
+    data: { status: "CANCELLED", cancelledAt: new Date() },
+  });
+  if (count === 0) return { ok: false, error: "This reservation can no longer be cancelled." };
   return { ok: true };
 }
 

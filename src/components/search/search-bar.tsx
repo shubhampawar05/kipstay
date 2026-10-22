@@ -183,7 +183,7 @@ export function SearchBar({
       <div className={cn(segmentBase, "flex-row items-center gap-2 pr-2", panel === "who" ? segmentActive : segmentIdle)}>
         <Popover open={panel === "who"} onOpenChange={(open) => setPanel(open ? "who" : null)}>
           <PopoverTrigger
-            className="flex h-full min-w-0 flex-1 flex-col justify-center text-left outline-none"
+            className="flex h-full min-w-0 flex-1 flex-col justify-center rounded-[32px] text-left outline-none focus-visible:underline"
             aria-label={`Who: ${guestSummary(s.guests) ?? "Add guests"}`}
           >
             <span className={label}>Who</span>
@@ -263,7 +263,7 @@ export function MobileSearch({ initial = {} }: { initial?: SearchInitial }) {
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger
         className="flex h-14 w-full items-center justify-center gap-3 rounded-full border border-grey-300 bg-background px-6 shadow-elev-2 press focus-ring"
-        aria-label="Open search"
+        aria-label={hasQuery ? `Open search: ${s.location || "Anywhere"}, ${s.datesLabel ?? "any week"}, ${guestSummary(s.guests) ?? "add guests"}` : "Open search"}
       >
         <Search className="size-4 shrink-0" strokeWidth={2.5} />
         {hasQuery ? (
@@ -293,7 +293,7 @@ export function MobileSearch({ initial = {} }: { initial?: SearchInitial }) {
         >
           <section className="rounded-[24px] bg-background p-5 shadow-elev-2">
             <h3 className="mb-3 text-[22px] leading-[26px] font-semibold">Where?</h3>
-            <div className="rounded-xl border border-grey-600 px-4 py-3.5">
+            <div className="rounded-xl border border-grey-600 px-4 py-3.5 transition-shadow focus-within:border-foreground focus-within:shadow-[inset_0_0_0_1px_#222]">
               <DestinationInput value={s.location} onChange={s.setLocation} inputClassName="text-sm" inline />
             </div>
           </section>

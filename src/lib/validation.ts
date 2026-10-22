@@ -180,6 +180,17 @@ export const listingSchema = z.object({
 
 export type ListingInput = z.infer<typeof listingSchema>;
 
+/** A host closing nights on their calendar: [start, end) like a stay, so `end` is the first night open again. */
+export const blockSchema = z
+  .object({
+    listingId: z.string().min(1).max(40),
+    start: z.string().refine((v) => parseISODate(v) !== null, "Choose a start date"),
+    end: z.string().refine((v) => parseISODate(v) !== null, "Choose an end date"),
+    note: z.string().trim().max(120, "Keep the note under 120 characters").default(""),
+  })
+  .transform((b) => ({ ...b, startDate: parseISODate(b.start)!, endDate: parseISODate(b.end)! }))
+  .refine((b) => b.endDate > b.startDate, { message: "Choose at least one night", path: ["end"] });
+
 /** Only allow same-origin relative redirects after login. */
 export function safeNextPath(next: unknown): string {
   if (typeof next !== "string" || !next.startsWith("/") || next.startsWith("//") || next.startsWith("/\\")) return "/";

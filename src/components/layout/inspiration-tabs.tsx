@@ -52,7 +52,7 @@ export function InspirationTabs({ tabs }: { tabs: InspirationTab[] }) {
         ))}
         {!expanded && tab.links.length > visible.length && (
           <li>
-            <button type="button" onClick={() => setExpanded(true)} className="text-sm font-medium underline focus-ring">
+            <button type="button" onClick={() => setExpanded(true)} className="-my-1 rounded-sm py-1 text-sm font-medium underline focus-ring">
               Show more
             </button>
           </li>

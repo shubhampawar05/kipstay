@@ -71,6 +71,26 @@ function useQuote(range: DateRange | undefined, guests: Guests, listing: { id: s
   return { state: key ? state : ({ status: "idle" } as QuoteState), reserveHref };
 }
 
+/**
+ * Mirrors the chosen stay into the address bar (replaceState, no navigation or server render), so refresh, back,
+ * shared links and the checkout redirect keep the dates and guests. A half-picked range leaves the URL alone.
+ */
+function useStayInUrl(range: DateRange | undefined, guests: Guests) {
+  const checkin = range?.from && range.to ? localISO(range.from) : null;
+  const checkout = range?.from && range.to ? localISO(range.to) : null;
+  const pending = !!range?.from && !range.to;
+  useEffect(() => {
+    if (pending) return;
+    const url = new URL(window.location.href);
+    const set = (k: string, v: string | null) => (v ? url.searchParams.set(k, v) : url.searchParams.delete(k));
+    set("checkin", checkin);
+    set("checkout", checkout);
+    set("adults", guests.adults ? String(guests.adults) : null);
+    for (const k of ["children", "infants", "pets"] as const) set(k, guests[k] ? String(guests[k]) : null);
+    if (url.href !== window.location.href) window.history.replaceState(window.history.state, "", url);
+  }, [checkin, checkout, pending, guests]);
+}
+
 const StayContext = createContext<StayState | null>(null);
 
 export function useStay() {
@@ -121,6 +141,7 @@ export function StayProvider({
   }, [ranges, range]);
 
   const { state: quote, reserveHref } = useQuote(range, guests, listing);
+  useStayInUrl(range, guests);
 
   return (
     <StayContext.Provider value={{ range, setRange, guests, setGuests, isDisabled, listing, quote, reserveHref }}>{children}</StayContext.Provider>

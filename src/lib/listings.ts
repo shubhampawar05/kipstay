@@ -33,6 +33,16 @@ export function overlappingBookings(checkIn: Date, checkOut: Date): Prisma.Booki
   return { status: { not: "CANCELLED" }, checkIn: { lt: checkOut }, checkOut: { gt: checkIn } };
 }
 
+/** Host calendar blocks that close at least one night of [checkIn, checkOut). */
+export function overlappingBlocks(checkIn: Date, checkOut: Date): Prisma.AvailabilityBlockWhereInput {
+  return { startDate: { lt: checkOut }, endDate: { gt: checkIn } };
+}
+
+/** Listings free for every night of [checkIn, checkOut): no live booking and no host block. */
+export function availableFor(checkIn: Date, checkOut: Date): Prisma.ListingWhereInput {
+  return { bookings: { none: overlappingBookings(checkIn, checkOut) }, blocks: { none: overlappingBlocks(checkIn, checkOut) } };
+}
+
 export function buildSearchWhere(f: SearchFilters): Prisma.ListingWhereInput {
   const and: Prisma.ListingWhereInput[] = [{ isPublished: true }];
 
@@ -61,7 +71,7 @@ export function buildSearchWhere(f: SearchFilters): Prisma.ListingWhereInput {
 
   if (f.checkin && f.checkout) {
     and.push({ minNights: { lte: nightsBetween(f.checkin, f.checkout) } });
-    and.push({ bookings: { none: overlappingBookings(f.checkin, f.checkout) } });
+    and.push(availableFor(f.checkin, f.checkout));
   }
 
   return { AND: and };
@@ -103,13 +113,17 @@ export async function getListingDetail(id: string) {
   });
 }
 
-/** Future booked ranges for a listing, as [checkIn, checkOut) pairs. */
+/** Future unavailable ranges for a listing (bookings and host blocks), as [checkIn, checkOut) pairs. */
 export async function getBookedRanges(listingId: string) {
-  return prisma.booking.findMany({
-    where: { listingId, status: { not: "CANCELLED" }, checkOut: { gt: todayUTC() } },
-    select: { checkIn: true, checkOut: true },
-    orderBy: { checkIn: "asc" },
-  });
+  const today = todayUTC();
+  const [bookings, blocks] = await Promise.all([
+    prisma.booking.findMany({
+      where: { listingId, status: { not: "CANCELLED" }, checkOut: { gt: today } },
+      select: { checkIn: true, checkOut: true },
+    }),
+    prisma.availabilityBlock.findMany({ where: { listingId, endDate: { gt: today } }, select: { startDate: true, endDate: true } }),
+  ]);
+  return [...bookings, ...blocks.map((b) => ({ checkIn: b.startDate, checkOut: b.endDate }))].sort((a, b) => a.checkIn.getTime() - b.checkIn.getTime());
 }
 
 export async function getWishlistIds(userId: string | undefined): Promise<Set<string>> {

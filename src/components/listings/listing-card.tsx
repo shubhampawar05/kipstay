@@ -56,8 +56,10 @@ export function ListingCard({
       <Link href={href} className="absolute inset-0 z-10 rounded-[20px] outline-none focus-visible:shadow-[var(--focus-ring)]" aria-labelledby={`title-${listing.id}`}>
         <span className="sr-only">View {listing.title}</span>
       </Link>
-      <div className="relative">
-        <CardCarousel images={listing.images} title={listing.title} priority={priority} dots={variant === "full"} />
+      {/* On touch screens the photo track sits above the card-wide link so it can be swiped (its slides link to the
+          listing too); with a mouse, the arrows page it and the card link stays the click target. */}
+      <div className="relative pointer-coarse:z-[15]">
+        <CardCarousel images={listing.images} title={listing.title} href={href} priority={priority} dots={variant === "full"} />
         {favourite && (
           <span className="pointer-events-none absolute top-3 left-3 z-20 max-w-[calc(100%-60px)] truncate rounded-[14px] border border-white/50 bg-white/80 px-[9.5px] py-[5.5px] text-xs leading-none font-semibold text-foreground shadow-elev-1 backdrop-blur-sm">
             Guest favourite

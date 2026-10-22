@@ -96,6 +96,7 @@ model Listing {
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
   bookings           Booking[]
+  blocks             AvailabilityBlock[]
   reviews            Review[]
   wishlistedBy       WishlistItem[]
 
@@ -140,6 +141,20 @@ model Booking {
 
   @@index([listingId, checkIn])
   @@index([guestId])
+}
+
+/// Nights a host has closed on their calendar. Same half-open [startDate, endDate) convention as bookings;
+/// blocks can't overlap each other (exclusion constraint) and are checked against bookings under a listing row lock.
+model AvailabilityBlock {
+  id        String   @id @default(cuid())
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  startDate DateTime @db.Date
+  endDate   DateTime @db.Date
+  note      String   @default("")
+  createdAt DateTime @default(now())
+
+  @@index([listingId, startDate])
 }
 
 model Review {

@@ -20,9 +20,20 @@ const reserveClass =
  * Booking card measured on the reference: radius 12, 1px #DDD border, elevation 0 6px 16px rgba(0,0,0,.12),
  * 24px padding; outlined date/guest box (radius 8, #B0B0B0) with 10px uppercase labels; 48px gradient Reserve.
  */
-export function BookingWidget({ pricePerNight, freeCancellationNote }: { pricePerNight: number; freeCancellationNote?: string }) {
+/** "Free cancellation before …" for the selected check-in, if that deadline is still ahead. */
+function cancellationNote(checkin: Date | undefined, daysBefore: number) {
+  if (!checkin) return null;
+  const deadline = new Date(checkin);
+  deadline.setDate(deadline.getDate() - daysBefore);
+  if (deadline <= new Date()) return null;
+  return `Free cancellation before ${deadline.toLocaleDateString("en-US", { month: "long", day: "numeric" })}`;
+}
+
+export function BookingWidget({ pricePerNight, cancelDaysBefore }: { pricePerNight: number; cancelDaysBefore: number }) {
   const { range, setRange, guests, setGuests, isDisabled, listing, quote: state, reserveHref } = useStay();
   const [panel, setPanel] = useState<"dates" | "guests" | null>(null);
+  const freeCancellationNote = range?.to ? cancellationNote(range.from, cancelDaysBefore) : null;
+  const datesLabel = range?.from && range.to ? `${shortDate(range.from)} to ${shortDate(range.to)}` : "no dates selected";
 
   return (
     <div id="booking-widget" className="rounded-xl border border-grey-400 p-6 shadow-elev-2" data-testid="booking-widget">
@@ -41,7 +52,10 @@ export function BookingWidget({ pricePerNight, freeCancellationNote }: { pricePe
 
       <div className="mt-6 overflow-hidden rounded-lg border border-grey-600">
         <Popover open={panel === "dates"} onOpenChange={(o) => setPanel(o ? "dates" : null)}>
-          <PopoverTrigger className="grid w-full grid-cols-2 text-left outline-none" aria-label="Change dates">
+          <PopoverTrigger
+            className="grid w-full grid-cols-2 rounded-t-lg text-left outline-none focus-visible:shadow-[inset_0_0_0_2px_#222]"
+            aria-label={`Change dates, ${datesLabel}`}
+          >
             <span className={cn("rounded-tl-lg border-r border-grey-600 px-3 pt-2.5 pb-2", panel === "dates" && "shadow-[inset_0_0_0_2px_#222]")}>
               <span className="block text-[10px] leading-3 font-bold tracking-wide uppercase">Check-in</span>
               <span className={cn("text-sm", !range?.from && "text-muted-foreground")}>{range?.from ? range.from.toLocaleDateString("en-US") : "Add date"}</span>
@@ -67,8 +81,11 @@ export function BookingWidget({ pricePerNight, freeCancellationNote }: { pricePe
         </Popover>
         <Popover open={panel === "guests"} onOpenChange={(o) => setPanel(o ? "guests" : null)}>
           <PopoverTrigger
-            className={cn("flex w-full items-center justify-between border-t border-grey-600 px-3 pt-2.5 pb-2 text-left outline-none", panel === "guests" && "rounded-b-lg shadow-[inset_0_0_0_2px_#222]")}
-            aria-label="Change guests"
+            className={cn(
+              "flex w-full items-center justify-between rounded-b-lg border-t border-grey-600 px-3 pt-2.5 pb-2 text-left outline-none focus-visible:shadow-[inset_0_0_0_2px_#222]",
+              panel === "guests" && "shadow-[inset_0_0_0_2px_#222]",
+            )}
+            aria-label={`Change guests, ${guestSummary(guests) ?? "1 guest"}`}
           >
             <span>
               <span className="block text-[10px] leading-3 font-bold tracking-wide uppercase">Guests</span>
@@ -90,7 +107,7 @@ export function BookingWidget({ pricePerNight, freeCancellationNote }: { pricePe
             Reserve
           </Link>
         ) : (
-          <button type="button" className={reserveClass} disabled={state.status === "loading" || state.status === "error"} onClick={() => setPanel("dates")}>
+          <button type="button" className={reserveClass} disabled={state.status === "loading"} onClick={() => setPanel("dates")}>
             {state.status === "loading" ? <Loader2 className="animate-spin" /> : "Check availability"}
           </button>
         )}
@@ -117,7 +134,7 @@ export function BookingWidget({ pricePerNight, freeCancellationNote }: { pricePe
 export function MobileReserveBar({ pricePerNight }: { pricePerNight: number }) {
   const { range, quote: state, reserveHref } = useStay();
   return (
-    <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 flex items-center justify-between gap-4 border-t border-grey-300 bg-background px-6 py-4 md:bottom-0 lg:hidden">
+    <div className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-between gap-4 border-t border-grey-300 bg-background px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] lg:hidden">
       <div className="min-w-0 text-sm">
         {state.status === "ok" ? (
           <p className="text-base">

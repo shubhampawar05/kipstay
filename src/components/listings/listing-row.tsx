@@ -4,6 +4,7 @@ import { Children, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Reveal } from "@/components/motion/reveal";
 
 // Reference carousel buttons: 28px circles, hover scale(30/28), press scale(26/28), 250ms standard easing.
 const navButton =
@@ -18,10 +19,18 @@ export function ListingRow({ title, subtitle, href, children }: { title: string;
   const [edges, setEdges] = useState({ start: true, end: false });
   const count = Children.count(children);
 
+  const frame = useRef(0);
+  // At most one measurement per frame, and no re-render unless an edge actually changed.
   const update = useCallback(() => {
-    const el = scroller.current;
-    if (!el) return;
-    setEdges({ start: el.scrollLeft <= 4, end: el.scrollLeft + el.clientWidth >= el.scrollWidth - 4 });
+    if (frame.current) return;
+    frame.current = requestAnimationFrame(() => {
+      frame.current = 0;
+      const el = scroller.current;
+      if (!el) return;
+      const start = el.scrollLeft <= 4;
+      const end = el.scrollLeft + el.clientWidth >= el.scrollWidth - 4;
+      setEdges((prev) => (prev.start === start && prev.end === end ? prev : { start, end }));
+    });
   }, []);
 
   useEffect(() => {
@@ -32,6 +41,8 @@ export function ListingRow({ title, subtitle, href, children }: { title: string;
     return () => {
       el?.removeEventListener("scroll", update);
       window.removeEventListener("resize", update);
+      cancelAnimationFrame(frame.current);
+      frame.current = 0;
     };
   }, [update]);
 
@@ -78,19 +89,23 @@ export function ListingRow({ title, subtitle, href, children }: { title: string;
           </div>
         )}
       </div>
-      <div
-        ref={scroller}
-        className={cn(
-          // Phones peek the next card into the 24px gutter; from 744px the row clips at the gutter like the reference.
-          "scrollbar-none -mx-6 grid snap-x snap-mandatory auto-cols-[calc((100%-1rem)/2.2)] grid-flow-col gap-3 overflow-x-auto scroll-px-6 px-6 pb-1",
-          "min-[744px]:mx-0 min-[744px]:auto-cols-[calc((100%-3*0.75rem)/4)] min-[744px]:scroll-px-0 min-[744px]:px-0",
-          "min-[1128px]:auto-cols-[calc((100%-4*0.75rem)/5)] min-[1280px]:auto-cols-[calc((100%-5*0.75rem)/6)] min-[1440px]:auto-cols-[calc((100%-6*0.75rem)/7)]",
-        )}
-      >
-        {Children.map(children, (child) => (
-          <div className="min-w-0 snap-start">{child}</div>
-        ))}
-      </div>
+      <Reveal group>
+        <div
+          ref={scroller}
+          className={cn(
+            // Phones peek the next card into the 24px gutter; from 744px the row clips at the gutter like the reference.
+            "scrollbar-none -mx-6 grid snap-x snap-mandatory auto-cols-[calc((100%-1rem)/2.2)] grid-flow-col gap-3 overflow-x-auto scroll-px-6 px-6 pb-1",
+            "min-[744px]:mx-0 min-[744px]:auto-cols-[calc((100%-3*0.75rem)/4)] min-[744px]:scroll-px-0 min-[744px]:px-0",
+            "min-[1128px]:auto-cols-[calc((100%-4*0.75rem)/5)] min-[1280px]:auto-cols-[calc((100%-5*0.75rem)/6)] min-[1440px]:auto-cols-[calc((100%-6*0.75rem)/7)]",
+          )}
+        >
+          {Children.map(children, (child, i) => (
+            <div className="kip-reveal-item min-w-0 snap-start" style={{ "--reveal-index": i } as React.CSSProperties}>
+              {child}
+            </div>
+          ))}
+        </div>
+      </Reveal>
     </section>
   );
 }

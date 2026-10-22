@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Grid3x3, X } from "lucide-react";
@@ -8,17 +8,41 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { groupPhotos } from "@/lib/photos";
 import { cn } from "@/lib/utils";
 import { ShareButton } from "./share-button";
+import { BackButton } from "./back-button";
 import { useStay } from "./stay-context";
 
 /**
  * Reference photo experience: 1+4 mosaic (radius 12, 8px gaps) → full-page "Photo tour" grouped by room
  * → fullscreen viewer with arrow-key navigation.
  */
-export function PhotoGallery({ images, title, saveSlot }: { images: string[]; title: string; saveSlot?: React.ReactNode }) {
+export function PhotoGallery({
+  images,
+  title,
+  saveSlot,
+  mobileSaveSlot,
+}: {
+  images: string[];
+  title: string;
+  saveSlot?: React.ReactNode;
+  /** Round icon version of the save button for the phone photo header. */
+  mobileSaveSlot?: React.ReactNode;
+}) {
   const [tourOpen, setTourOpen] = useState(false);
   const [viewer, setViewer] = useState<number | null>(null);
   const groups = groupPhotos(images);
   const mosaic = images.slice(0, 5);
+
+  const strip = useRef<HTMLDivElement>(null);
+  const stripFrame = useRef(0);
+  const [stripIndex, setStripIndex] = useState(0);
+  useEffect(() => () => cancelAnimationFrame(stripFrame.current), []);
+  function onStripScroll() {
+    cancelAnimationFrame(stripFrame.current);
+    stripFrame.current = requestAnimationFrame(() => {
+      const el = strip.current;
+      if (el && el.clientWidth) setStripIndex(Math.round(el.scrollLeft / el.clientWidth));
+    });
+  }
 
   function step(delta: number) {
     setViewer((i) => (i === null ? i : (i + delta + images.length) % images.length));
@@ -26,16 +50,25 @@ export function PhotoGallery({ images, title, saveSlot }: { images: string[]; ti
 
   return (
     <div id="photos" className="scroll-mt-24">
-      {/* Phones: swipe strip with a counter. */}
-      <div className="scrollbar-none -mx-6 flex snap-x snap-mandatory overflow-x-auto md:hidden">
-        {images.map((src, i) => (
-          <button key={src + i} type="button" className="relative aspect-[4/3] w-full shrink-0 snap-center" onClick={() => setTourOpen(true)} aria-label={`Open photo tour, photo ${i + 1} of ${images.length}`}>
-            <Image src={src} alt="" fill unoptimized priority={i === 0} className="object-cover" sizes="100vw" />
-            <span className="absolute right-4 bottom-4 rounded-md bg-black/60 px-2.5 py-1 text-xs font-medium text-white">
-              {i + 1} / {images.length}
-            </span>
-          </button>
-        ))}
+      {/* Phones: edge-to-edge swipe strip with back / share / save floating on top and a live counter. */}
+      <div className="relative -mx-6 -mt-6 md:hidden">
+        <div ref={strip} onScroll={onStripScroll} className="scrollbar-none flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain">
+          {images.map((src, i) => (
+            <button key={src + i} type="button" className="relative aspect-[4/3] w-full shrink-0 snap-center snap-always" onClick={() => setTourOpen(true)} aria-label={`Open photo tour, photo ${i + 1} of ${images.length}`}>
+              <Image src={src} alt="" fill unoptimized priority={i === 0} loading={i === 0 ? undefined : "lazy"} className="object-cover" sizes="100vw" />
+            </button>
+          ))}
+        </div>
+        <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between p-4">
+          <BackButton className="pointer-events-auto" />
+          <div className="pointer-events-auto flex items-center gap-3">
+            <ShareButton title={title} iconOnly />
+            {mobileSaveSlot}
+          </div>
+        </div>
+        <span aria-live="polite" className="pointer-events-none absolute right-4 bottom-4 rounded-md bg-black/60 px-2.5 py-1 text-xs font-medium text-white">
+          {stripIndex + 1} / {images.length}
+        </span>
       </div>
 
       {/* Desktop: 1 large + 4 small mosaic. */}
