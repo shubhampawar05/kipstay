@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
+<rect width="800" height="600" fill="#ecfccb"/><rect y="430" width="800" height="170" fill="#d6d3d1"/>
+<rect x="520" y="90" width="200" height="170" fill="#7dd3fc" stroke="#fff" stroke-width="12"/><line x1="620" y1="90" x2="620" y2="260" stroke="#fff" stroke-width="8"/>
+<rect x="140" y="300" width="340" height="150" rx="14" fill="#fafaf9"/><rect x="140" y="360" width="340" height="90" rx="10" fill="#1d4ed8"/>
+<rect x="160" y="310" width="130" height="50" rx="16" fill="#fff"/><rect x="330" y="310" width="130" height="50" rx="16" fill="#fff"/>
+<rect x="130" y="250" width="360" height="60" rx="10" fill="#a8a29e"/>
+<rect x="520" y="370" width="70" height="80" fill="#a16207"/><polygon points="535,300 575,300 590,340 520,340" fill="#fde68a"/><rect x="552" y="340" width="6" height="30" fill="#57534e"/>
+</svg>

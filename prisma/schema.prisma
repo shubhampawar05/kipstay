@@ -1,0 +1,168 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String         @id @default(cuid())
+  email        String         @unique
+  name         String
+  passwordHash String
+  isHost       Boolean        @default(false)
+  bio          String?
+  createdAt    DateTime       @default(now())
+  sessions     Session[]
+  listings     Listing[]      @relation("HostListings")
+  bookings     Booking[]      @relation("GuestBookings")
+  reviews      Review[]
+  wishlist     WishlistItem[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  // SHA-256 of the random token stored in the cookie; the raw token is never persisted.
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+enum PropertyType {
+  APARTMENT
+  HOUSE
+  CABIN
+  VILLA
+  COTTAGE
+  LOFT
+  TINY_HOME
+}
+
+enum Category {
+  BEACH
+  MOUNTAINS
+  CITY
+  COUNTRYSIDE
+  LAKEFRONT
+  DESERT
+  TROPICAL
+}
+
+enum CancellationPolicy {
+  FLEXIBLE
+  MODERATE
+  STRICT
+}
+
+model Listing {
+  id                 String             @id @default(cuid())
+  hostId             String
+  host               User               @relation("HostListings", fields: [hostId], references: [id], onDelete: Cascade)
+  title              String
+  description        String
+  propertyType       PropertyType
+  category           Category
+  city               String
+  region             String
+  country            String
+  latitude           Float?
+  longitude          Float?
+  maxGuests          Int
+  bedrooms           Int
+  beds               Int
+  bathrooms          Float
+  /// Nightly price in cents (USD).
+  pricePerNight      Int
+  /// One-off cleaning fee in cents (USD).
+  cleaningFee        Int                @default(0)
+  minNights          Int                @default(1)
+  allowsPets         Boolean            @default(false)
+  amenities          String[]
+  images             String[]
+  checkInTime        String             @default("15:00")
+  checkOutTime       String             @default("11:00")
+  houseRules         String             @default("")
+  cancellationPolicy CancellationPolicy @default(FLEXIBLE)
+  isPublished        Boolean            @default(true)
+  /// Denormalised from Review rows; refreshed whenever a review is written.
+  avgRating          Float              @default(0)
+  reviewCount        Int                @default(0)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  bookings           Booking[]
+  reviews            Review[]
+  wishlistedBy       WishlistItem[]
+
+  @@index([city])
+  @@index([category])
+  @@index([hostId])
+}
+
+enum BookingStatus {
+  CONFIRMED
+  CANCELLED
+}
+
+model Booking {
+  id           String        @id @default(cuid())
+  listingId    String
+  listing      Listing       @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  guestId      String
+  guest        User          @relation("GuestBookings", fields: [guestId], references: [id], onDelete: Cascade)
+  /// Nights are the half-open range [checkIn, checkOut). See the exclusion constraint in the migration.
+  checkIn      DateTime      @db.Date
+  checkOut     DateTime      @db.Date
+  adults       Int
+  children     Int           @default(0)
+  infants      Int           @default(0)
+  pets         Int           @default(0)
+  nights       Int
+  // Price snapshot in cents, computed on the server when the booking was made.
+  nightlyPrice Int
+  subtotal     Int
+  discount     Int           @default(0)
+  cleaningFee  Int
+  serviceFee   Int
+  taxes        Int
+  total        Int
+  currency     String        @default("USD")
+  status       BookingStatus @default(CONFIRMED)
+  paymentRef   String
+  createdAt    DateTime      @default(now())
+  cancelledAt  DateTime?
+  review       Review?
+
+  @@index([listingId, checkIn])
+  @@index([guestId])
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  bookingId String?  @unique
+  booking   Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  rating    Int
+  comment   String
+  createdAt DateTime @default(now())
+
+  @@index([listingId])
+}
+
+model WishlistItem {
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([userId, listingId])
+}
