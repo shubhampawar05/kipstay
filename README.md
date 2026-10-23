@@ -198,6 +198,44 @@ Gaps came from a fresh REA capture of the reference results page (evidence `ev_2
 - **Category ratings:** reviews rate Cleanliness, Accuracy, Check-in, Communication, Location and Value (required, 1–5,
   DB CHECK). The listing page shows the reference's breakdown row with an icon per category.
 - **Search bar motion:** a single white pill slides between Where, When and Who (transform + width, 300 ms standard easing).
+
+### Round 5: landing page
+
+Gaps came from a fresh REA capture of the reference home page at 1440 px (evidence `ev_0b9e8427…`, at
+`../investigation/round5/`).
+
+- **All-in prices on home cards:** home rows show the total for the shortest allowed stay, fees and taxes included
+  ("$849 for 2 nights"), as the reference does ("₹850 for 1 night"). Computed with the same `calculateQuote` as checkout.
+- **First-visit fees notice:** a "One price for your whole stay, fees included" dialog with a "Got it" button, then a
+  "Prices include all fees" pill for 6 s. Remembered in `localStorage` (`kip:fees-notice-seen`); if storage is blocked it
+  never shows.
+- **"Explore stays by category" tiles** replace the home icon bar, modelled on the reference's "Explore experiences
+  nearby" row: 20:19 artwork, label and stay count, with previous/next buttons only when the row overflows.
+- **Row headings:** destination rows alternate "Popular homes in / Places to stay in / Stay in" with a tagline
+  (`CITY_TAGLINES`), and the weekend row shows its dates.
+- **Carousel status:** each row announces "6 of 10 items showing" to screen readers, as on the reference.
+- Playwright's default storage marks the notice as seen; `tests/e2e/landing.spec.ts` covers it from empty storage.
+
+- **Product tabs:** All / Homes / Experiences / Services in the header centre, as on the reference (links to `/`, `/homes`,
+  `/experiences`, `/services`), with original illustrated icons that lift on hover and a 3 px underline on the current
+  tab. On home the tabs crossfade with the compact search pill in one grid cell, so the bar never changes height. Phones
+  get a row of the same tabs under the search pill.
+  - **All** is the full feed plus a "Coming soon to Kipstay" teaser; **Homes** is the stays feed alone.
+  - **Experiences** and **Services** carry a "Soon" badge and open a coming-soon page (what's planned, "Explore homes").
+
+- **One search bar on every tab**, adapted per tab as on the reference (REA evidence `ev_868ca8dd…` for /services and
+  `ev_78c97cd0…` for /experiences, at `../investigation/round6/`):
+  - **All / Homes:** Where · When (two-month range) · Who (adults, children, infants, pets) → `/s?…`.
+  - **Experiences:** "Search by city or landmark", a When panel with Today / Tomorrow / This weekend beside a one-month
+    calendar (a single day is allowed), and Who without pets → `/experiences?…`.
+  - **Services:** Where · When · "Type of service" (nine chips: Photography, Chefs, Massage, Prepared meals, Training,
+    Make-up, Hair, Spa treatments, Catering) → `/services?…&service=`.
+  - The compact header pill and the phone search sheet ("Find a stay / an experience / a service") follow the same tab.
+  - Experience and service searches land on the coming-soon page, which repeats the search ("Photography in Kyoto") and
+    links to homes for the same place, dates and guests. Parameters are validated with zod (`productSearchSchema`).
+
+Not yet built (each is its own feature): real Experiences and Services, a language and currency picker, and rows
+personalised to the visitor's location.
 - **Listing page:** "Explore other options in and around {city}" links (other stay types here, nearby cities) and a
   breadcrumb.
 

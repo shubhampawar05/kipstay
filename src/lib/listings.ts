@@ -17,6 +17,7 @@ export const cardSelect = {
   bathrooms: true,
   pricePerNight: true,
   cleaningFee: true,
+  minNights: true,
   images: true,
   avgRating: true,
   reviewCount: true,

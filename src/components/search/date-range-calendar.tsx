@@ -5,7 +5,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { useHydrated, useIsDesktop } from "@/hooks/use-media-query";
 
-/** Two-month range calendar (one month on phones) with past days disabled. */
+/** Two-month range calendar (one month on phones, or when `months` is 1) with past days disabled. */
 export function DateRangeCalendar({
   value,
   onChange,
@@ -14,6 +14,7 @@ export function DateRangeCalendar({
   autoFocus,
   strikeUnavailable,
   compact,
+  months = 2,
 }: {
   value: DateRange | undefined;
   onChange: (range: DateRange | undefined) => void;
@@ -24,6 +25,7 @@ export function DateRangeCalendar({
   strikeUnavailable?: boolean;
   /** 44px cells and tighter month gap, for narrower columns such as the listing page. */
   compact?: boolean;
+  months?: 1 | 2;
 }) {
   const isDesktop = useIsDesktop();
   const hydrated = useHydrated();
@@ -36,7 +38,7 @@ export function DateRangeCalendar({
   return (
     <Calendar
       mode="range"
-      numberOfMonths={isDesktop ? 2 : 1}
+      numberOfMonths={isDesktop ? months : 1}
       selected={value}
       onSelect={onChange}
       min={minNights}

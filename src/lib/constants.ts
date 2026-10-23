@@ -10,6 +10,42 @@ export const CATEGORIES: { value: Category; label: string; icon: string }[] = [
   { value: "TROPICAL", label: "Tropical", icon: "Palmtree" },
 ];
 
+/** One-line descriptions under home rows (the reference pairs each destination heading with a short tagline). */
+export const CITY_TAGLINES: Record<string, string> = {
+  Lisbon: "Hilltop lanes and Atlantic light",
+  Kyoto: "Temples, gardens and lantern-lit streets",
+  Banff: "Peaks and glacier lakes in the Rockies",
+  "Lake Tahoe": "Alpine water on the California–Nevada line",
+  Asheville: "Blue Ridge views and a lively food scene",
+  Tulum: "Cenotes, ruins and Caribbean beaches",
+  Santorini: "Caldera sunsets in the Aegean",
+  Marrakech: "Riads, souks and the edge of the desert",
+  Reykjavik: "Harbour city by the lava fields",
+  "Cape Town": "Table Mountain, beaches and vineyards",
+  Goa: "Palm-lined beaches on India's west coast",
+  Bled: "A lake island among the Julian Alps",
+  "Joshua Tree": "Boulder country under dark skies",
+};
+
+/** Service types offered on the Services tab's "Type of service" panel (the reference lists these nine). */
+export const SERVICE_TYPES = [
+  { value: "photography", label: "Photography" },
+  { value: "chefs", label: "Chefs" },
+  { value: "massage", label: "Massage" },
+  { value: "prepared-meals", label: "Prepared meals" },
+  { value: "training", label: "Training" },
+  { value: "make-up", label: "Make-up" },
+  { value: "hair", label: "Hair" },
+  { value: "spa", label: "Spa treatments" },
+  { value: "catering", label: "Catering" },
+] as const;
+
+export type ServiceType = (typeof SERVICE_TYPES)[number]["value"];
+
+export function serviceLabel(value: string | undefined | null) {
+  return SERVICE_TYPES.find((s) => s.value === value)?.label;
+}
+
 export const PROPERTY_TYPES: { value: PropertyType; label: string }[] = [
   { value: "APARTMENT", label: "Apartment" },
   { value: "HOUSE", label: "House" },
