@@ -20,6 +20,7 @@ export function DestinationInput({
   panelClassName,
   autoFocus,
   inline,
+  placeholder = "Search destinations",
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -31,6 +32,7 @@ export function DestinationInput({
   autoFocus?: boolean;
   /** Render suggestions in the document flow (phone search sheet) instead of a floating panel. */
   inline?: boolean;
+  placeholder?: string;
 }) {
   const listId = useId();
   const [open, setOpenState] = useState(false);
@@ -99,7 +101,7 @@ export function DestinationInput({
           aria-autocomplete="list"
           aria-activedescendant={active >= 0 ? `${listId}-${active}` : undefined}
           aria-label="Where"
-          placeholder="Search destinations"
+          placeholder={placeholder}
           autoComplete="off"
           autoFocus={autoFocus}
           value={value}

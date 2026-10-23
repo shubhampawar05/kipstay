@@ -21,6 +21,8 @@ export default defineConfig({
     trace: "retain-on-failure",
     // Uses the locally installed Google Chrome; set PW_CHANNEL="" to use Playwright's bundled Chromium.
     channel: process.env.PW_CHANNEL ?? "chrome",
+    // The home page's first-visit fees notice is a modal; specs that cover it start from empty storage.
+    storageState: { cookies: [], origins: [{ origin: baseURL, localStorage: [{ name: "kip:fees-notice-seen", value: "1" }] }] },
   },
   projects: [
     { name: "unit", testMatch: /unit\/.*\.spec\.ts/ },

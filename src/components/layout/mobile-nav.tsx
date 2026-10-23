@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Heart, Luggage, MessageSquare, Search, UserRound } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PRODUCT_TAB_PATHS } from "./product-tabs";
 
 /**
  * Reference phone behaviour: the tab bar slides away while scrolling down and returns on any upward scroll or near
@@ -43,7 +44,7 @@ export function MobileNav({ signedIn, unread }: { signedIn: boolean; unread: num
   // Listing pages have their own fixed reserve bar in this spot.
   const hidden = scrolledAway || pathname.startsWith("/rooms/");
   const items = [
-    { href: "/", label: "Explore", icon: Search, match: (p: string) => p === "/" || p.startsWith("/s") },
+    { href: "/", label: "Explore", icon: Search, match: (p: string) => PRODUCT_TAB_PATHS.includes(p) || p.startsWith("/s") },
     { href: "/wishlists", label: "Wishlists", icon: Heart, match: (p: string) => p.startsWith("/wishlists") },
     ...(signedIn
       ? [

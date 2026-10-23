@@ -14,9 +14,24 @@ const navButton =
  * Horizontal listing carousel: 2.2 cards on phones, 4 at 744px, 5 at 1128px, 6 at 1280px, 7 at 1440px
  * (column counts read from reference screenshots at 390, 820 and 1440px).
  */
-export function ListingRow({ title, subtitle, href, children }: { title: string; subtitle?: string; href?: string; children: React.ReactNode }) {
+export function ListingRow({
+  title,
+  subtitle,
+  href,
+  controls = "always",
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  href?: string;
+  /** "fit": hide previous/next while every item fits (the reference's tile row has none at full width). */
+  controls?: "always" | "fit";
+  children: React.ReactNode;
+}) {
   const scroller = useRef<HTMLDivElement>(null);
-  const [edges, setEdges] = useState({ start: true, end: false });
+  // "fit" rows assume they fit until measured, so buttons appear on overflow rather than flash away on load.
+  const [edges, setEdges] = useState({ start: true, end: controls === "fit" });
+  const [shown, setShown] = useState({ from: 1, to: 0 });
   const count = Children.count(children);
 
   const frame = useRef(0);
@@ -30,6 +45,16 @@ export function ListingRow({ title, subtitle, href, children }: { title: string;
       const start = el.scrollLeft <= 4;
       const end = el.scrollLeft + el.clientWidth >= el.scrollWidth - 4;
       setEdges((prev) => (prev.start === start && prev.end === end ? prev : { start, end }));
+      // "3–9 of 10 showing" for screen readers, like the reference's "7 of 9 items showing".
+      const item = el.firstElementChild as HTMLElement | null;
+      if (item) {
+        const gap = parseFloat(getComputedStyle(el).columnGap) || 0;
+        const step = item.offsetWidth + gap;
+        const from = Math.round(el.scrollLeft / step) + 1;
+        // The last visible card has no trailing gap, hence the extra `gap`.
+        const to = Math.min(el.children.length, Math.floor((el.scrollLeft + el.clientWidth + gap + 4) / step));
+        setShown((prev) => (prev.from === from && prev.to === to ? prev : { from, to }));
+      }
     });
   }, []);
 
@@ -78,7 +103,7 @@ export function ListingRow({ title, subtitle, href, children }: { title: string;
           </h2>
           {subtitle && <p className="mt-0.5 text-sm text-muted-foreground">{subtitle}</p>}
         </div>
-        {count > 2 && (
+        {count > 2 && !(controls === "fit" && edges.start && edges.end) && (
           <div className="hidden shrink-0 gap-2 md:flex">
             <button type="button" aria-label={`Previous: ${title}`} className={navButton} disabled={edges.start} onClick={() => page(-1)}>
               <ChevronLeft className="size-3.5" strokeWidth={2.5} />
@@ -89,6 +114,11 @@ export function ListingRow({ title, subtitle, href, children }: { title: string;
           </div>
         )}
       </div>
+      {shown.to > 0 && (
+        <p role="status" className="sr-only">
+          {shown.from === 1 ? `${shown.to}` : `${shown.from}–${shown.to}`} of {count} items showing
+        </p>
+      )}
       <Reveal group>
         <div
           ref={scroller}

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Star } from "lucide-react";
 import type { ListingCardData } from "@/lib/listings";
 import { propertyTypeLabel } from "@/lib/constants";
+import { addDays, todayUTC } from "@/lib/dates";
 import { calculateQuote, formatMoney } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { CardCarousel } from "./card-carousel";
@@ -20,14 +21,23 @@ export function ListingCard({
   stay = {},
   priority,
   variant = "full",
+  allInPrice = false,
 }: {
   listing: ListingCardData;
   saved: boolean;
   stay?: StayContext;
   priority?: boolean;
   variant?: "compact" | "full";
+  /** Without dates, show the all-in total for the shortest allowed stay (reference home rows: "₹850 for 1 night"). */
+  allInPrice?: boolean;
 }) {
-  const quote = stay.checkin && stay.checkout ? calculateQuote(listing, stay.checkin, stay.checkout) : null;
+  const shortestStay = allInPrice && !(stay.checkin && stay.checkout) ? Math.max(1, listing.minNights) : 0;
+  const quote =
+    stay.checkin && stay.checkout
+      ? calculateQuote(listing, stay.checkin, stay.checkout)
+      : shortestStay
+        ? calculateQuote(listing, todayUTC(), addDays(todayUTC(), shortestStay))
+        : null;
   const href = `/rooms/${listing.id}${stay.query ? `?${stay.query}` : ""}`;
   const isNew = listing.reviewCount === 0;
   const favourite = listing.avgRating >= 4.9 && listing.reviewCount >= 3;

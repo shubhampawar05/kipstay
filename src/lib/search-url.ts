@@ -1,7 +1,16 @@
 // Client-safe helpers for the URL-driven search contract (/s?location=&checkin=&…).
 
+/** Which tab's search: stays go to /s; experiences and services land on their (coming-soon) tab pages. */
+export type SearchMode = "homes" | "experiences" | "services";
+
+export function searchModeFor(pathname: string): SearchMode {
+  return pathname === "/experiences" ? "experiences" : pathname === "/services" ? "services" : "homes";
+}
+
 export type SearchQuery = {
   location?: string;
+  /** Services only: a SERVICE_TYPES value. */
+  service?: string;
   checkin?: string;
   checkout?: string;
   adults?: number;
@@ -29,6 +38,15 @@ export function searchHref(q: SearchQuery, base: Record<string, string | string[
   params.delete("page");
   const s = params.toString();
   return s ? `/s?${s}` : "/s";
+}
+
+/** Search URL for a tab: `/s?…` for homes, `/experiences?…` or `/services?…` (no pets; services add `service`). */
+export function modeSearchHref(mode: SearchMode, q: SearchQuery): string {
+  if (mode === "homes") return searchHref(q);
+  const params = new URLSearchParams(searchHref({ ...q, pets: undefined }).split("?")[1] ?? "");
+  if (mode === "services" && q.service) params.set("service", q.service);
+  const s = params.toString();
+  return `/${mode}${s ? `?${s}` : ""}`;
 }
 
 /** "YYYY-MM-DD" for a local calendar Date from a date picker. */

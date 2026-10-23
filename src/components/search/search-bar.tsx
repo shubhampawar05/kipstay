@@ -8,10 +8,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { fromISO, localISO, searchHref, shortDate } from "@/lib/search-url";
+import { serviceLabel } from "@/lib/constants";
+import { fromISO, localISO, modeSearchHref, shortDate, type SearchMode } from "@/lib/search-url";
 import { DestinationInput } from "./destination-input";
 import { DateRangeCalendar } from "./date-range-calendar";
 import { EMPTY_GUESTS, GuestPicker, guestSummary, type Guests } from "./guest-picker";
+import { ExperienceQuickDates, ServiceTypePicker } from "./search-mode-panels";
 
 export type SearchInitial = {
   location?: string;
@@ -21,13 +23,30 @@ export type SearchInitial = {
   children?: number;
   infants?: number;
   pets?: number;
+  service?: string;
 };
 
 export type SearchPanel = "where" | "when" | "who";
 
-function useSearchState(initial: SearchInitial, onSubmitted?: () => void) {
+/**
+ * Per-tab differences observed on the reference (REA captures of /experiences and /services): the same pill on every
+ * tab, but Experiences asks "Search by city or landmark", offers Today / Tomorrow / This weekend beside a one-month
+ * calendar and has no pets row; Services swaps Who for "Type of service" chips.
+ */
+const MODE_COPY: Record<SearchMode, { label: string; title: string; where: string }> = {
+  homes: { label: "Search stays", title: "Find a stay", where: "Search destinations" },
+  experiences: { label: "Search experiences", title: "Find an experience", where: "Search by city or landmark" },
+  services: { label: "Search services", title: "Find a service", where: "Search destinations" },
+};
+
+export function searchModeLabel(mode: SearchMode) {
+  return MODE_COPY[mode].label;
+}
+
+function useSearchState(initial: SearchInitial, mode: SearchMode, onSubmitted?: () => void) {
   const router = useRouter();
   const [location, setLocation] = useState(initial.location ?? "");
+  const [service, setService] = useState<string | undefined>(initial.service);
   const [range, setRange] = useState<DateRange | undefined>(() => {
     const from = fromISO(initial.checkin);
     const to = fromISO(initial.checkout);
@@ -41,17 +60,25 @@ function useSearchState(initial: SearchInitial, onSubmitted?: () => void) {
   });
 
   const datesLabel =
-    range?.from && range.to ? `${shortDate(range.from)} – ${shortDate(range.to)}` : range?.from ? shortDate(range.from) : null;
+    range?.from && range.to && range.from.getTime() !== range.to.getTime()
+      ? `${shortDate(range.from)} – ${shortDate(range.to)}`
+      : range?.from
+        ? shortDate(range.from)
+        : null;
 
   function submit() {
-    const complete = range?.from && range.to;
+    // Stays need a full range; an experience or service can be a single day.
+    const from = range?.from;
+    const to = range?.to ?? (mode === "homes" ? undefined : range?.from);
+    const complete = from && to;
     onSubmitted?.();
     router.push(
-      searchHref({
+      modeSearchHref(mode, {
         location,
-        checkin: complete ? localISO(range.from!) : undefined,
-        checkout: complete ? localISO(range.to!) : undefined,
-        ...guests,
+        checkin: complete ? localISO(from) : undefined,
+        checkout: complete ? localISO(to) : undefined,
+        ...(mode === "services" ? {} : guests),
+        service: mode === "services" ? service : undefined,
       }),
     );
   }
@@ -60,9 +87,10 @@ function useSearchState(initial: SearchInitial, onSubmitted?: () => void) {
     setLocation("");
     setRange(undefined);
     setGuests(EMPTY_GUESTS);
+    setService(undefined);
   }
 
-  return { location, setLocation, range, setRange, guests, setGuests, datesLabel, submit, clear };
+  return { location, setLocation, range, setRange, guests, setGuests, service, setService, datesLabel, submit, clear };
 }
 
 // Segment styling measured on the reference bar: 15x32 padding, radius 32, #EBEBEB hover fill,
@@ -79,9 +107,10 @@ function Divider({ hidden }: { hidden: boolean }) {
   return <span aria-hidden className={cn("h-8 w-px shrink-0 bg-grey-400 transition-opacity", hidden && "opacity-0")} />;
 }
 
-/** Desktop three-segment search pill (Where · When · Who). */
+/** Desktop three-segment search pill (Where · When · Who, or Type of service on the Services tab). */
 export function SearchBar({
   initial = {},
+  mode = "homes",
   className,
   initialPanel,
   onSubmitted,
@@ -94,8 +123,11 @@ export function SearchBar({
   onSubmitted?: () => void;
   /** Set when the bar has scrolled out of view under the header; any open panel closes. */
   collapsed?: boolean;
+  mode?: SearchMode;
 }) {
-  const s = useSearchState(initial, onSubmitted);
+  const s = useSearchState(initial, mode, onSubmitted);
+  const copy = MODE_COPY[mode];
+  const service = serviceLabel(s.service);
   const [panel, setPanel] = useState<SearchPanel | null>(initialPanel ?? null);
   const whereRef = useRef<HTMLDivElement>(null);
   const whenRef = useRef<HTMLButtonElement>(null);
@@ -160,7 +192,8 @@ export function SearchBar({
     <form
       ref={formRef}
       role="search"
-      aria-label="Search stays"
+      aria-label={copy.label}
+      data-mode={mode}
       data-active={active}
       className={cn(
         "flex h-[66px] w-full max-w-[850px] items-center rounded-[32px] border border-grey-400 bg-background shadow-search transition-colors duration-200 ease-standard data-[active=true]:border-transparent data-[active=true]:bg-grey-300",
@@ -190,6 +223,7 @@ export function SearchBar({
           onChange={s.setLocation}
           onSelect={() => setPanel("when")}
           onClose={() => setPanel((p) => (p === "where" ? null : p))}
+          placeholder={copy.where}
           inputClassName={cn(value, "text-foreground placeholder:text-muted-foreground")}
           panelClassName="-left-8 mt-[27px]"
         />
@@ -203,18 +237,28 @@ export function SearchBar({
           <span className={cn(value, s.datesLabel ? "text-foreground" : "text-muted-foreground")}>{s.datesLabel ?? "Add dates"}</span>
         </PopoverTrigger>
         <PopoverContent
-          className="kip-panel w-[min(850px,calc(100vw-2rem))] rounded-[32px] border-0 p-8 shadow-elev-4 ring-0"
+          className={cn(
+            "kip-panel rounded-[32px] border-0 p-8 shadow-elev-4 ring-0",
+            mode === "homes" ? "w-[min(850px,calc(100vw-2rem))]" : "w-[min(640px,calc(100vw-2rem))]",
+          )}
           align="center"
           sideOffset={12}
         >
-          <div className="flex justify-center">
-            <DateRangeCalendar value={s.range} onChange={s.setRange} autoFocus />
-          </div>
+          {mode === "homes" ? (
+            <div className="flex justify-center">
+              <DateRangeCalendar value={s.range} onChange={s.setRange} autoFocus />
+            </div>
+          ) : (
+            <div className="flex items-start gap-8">
+              <ExperienceQuickDates value={s.range} onChange={s.setRange} className="w-[180px] shrink-0" />
+              <DateRangeCalendar value={s.range} onChange={s.setRange} months={1} minNights={0} autoFocus />
+            </div>
+          )}
           <div className="mt-2 flex items-center justify-between">
             <Button type="button" variant="link" className="px-0 font-semibold text-foreground underline" onClick={() => s.setRange(undefined)}>
               Clear dates
             </Button>
-            <Button type="button" variant="dark" size="lg" className="h-10 rounded-lg px-5" onClick={() => setPanel("who")} disabled={!s.range?.to}>
+            <Button type="button" variant="dark" size="lg" className="h-10 rounded-lg px-5" onClick={() => setPanel("who")} disabled={mode === "homes" ? !s.range?.to : !s.range?.from}>
               Next
             </Button>
           </div>
@@ -225,18 +269,35 @@ export function SearchBar({
 
       <div ref={whoRef} className={cn(segmentBase, "flex-row items-center gap-2 pr-2", panel === "who" ? segmentActive : segmentIdle)}>
         <Popover open={panel === "who"} onOpenChange={(open) => setPanel(open ? "who" : null)}>
-          <PopoverTrigger
-            className="flex h-full min-w-0 flex-1 flex-col justify-center rounded-[32px] text-left outline-none focus-visible:underline"
-            aria-label={`Who: ${guestSummary(s.guests) ?? "Add guests"}`}
-          >
-            <span className={label}>Who</span>
-            <span className={cn(value, guestSummary(s.guests) ? "text-foreground" : "text-muted-foreground")}>
-              {guestSummary(s.guests) ?? "Add guests"}
-            </span>
-          </PopoverTrigger>
-          <PopoverContent className="kip-panel w-[425px] rounded-[32px] border-0 px-8 py-4 shadow-elev-4 ring-0" align="end" alignOffset={-8} sideOffset={20}>
-            <GuestPicker value={s.guests} onChange={s.setGuests} />
-          </PopoverContent>
+          {mode === "services" ? (
+            <>
+              <PopoverTrigger
+                className="flex h-full min-w-0 flex-1 flex-col justify-center rounded-[32px] text-left outline-none focus-visible:underline"
+                aria-label={`Type of service: ${service ?? "Add service"}`}
+              >
+                <span className={label}>Type of service</span>
+                <span className={cn(value, service ? "text-foreground" : "text-muted-foreground")}>{service ?? "Add service"}</span>
+              </PopoverTrigger>
+              <PopoverContent className="kip-panel w-[566px] rounded-[32px] border-0 p-10 shadow-elev-4 ring-0" align="end" alignOffset={-8} sideOffset={20}>
+                <ServiceTypePicker value={s.service} onChange={s.setService} />
+              </PopoverContent>
+            </>
+          ) : (
+            <>
+              <PopoverTrigger
+                className="flex h-full min-w-0 flex-1 flex-col justify-center rounded-[32px] text-left outline-none focus-visible:underline"
+                aria-label={`Who: ${guestSummary(s.guests) ?? "Add guests"}`}
+              >
+                <span className={label}>Who</span>
+                <span className={cn(value, guestSummary(s.guests) ? "text-foreground" : "text-muted-foreground")}>
+                  {guestSummary(s.guests) ?? "Add guests"}
+                </span>
+              </PopoverTrigger>
+              <PopoverContent className="kip-panel w-[425px] rounded-[32px] border-0 px-8 py-4 shadow-elev-4 ring-0" align="end" alignOffset={-8} sideOffset={20}>
+                <GuestPicker value={s.guests} onChange={s.setGuests} allowsPets={mode === "homes"} />
+              </PopoverContent>
+            </>
+          )}
         </Popover>
         <button
           type="submit"
@@ -255,7 +316,15 @@ export function SearchBar({
 }
 
 /** Collapsed header pill ("Anywhere · Any week · Add guests") that expands the full search at a segment. */
-export function CompactSearch({ initial = {}, onOpen }: { initial?: SearchInitial; onOpen: (panel: SearchPanel) => void }) {
+export function CompactSearch({
+  initial = {},
+  onOpen,
+  mode = "homes",
+}: {
+  initial?: SearchInitial;
+  onOpen: (panel: SearchPanel) => void;
+  mode?: SearchMode;
+}) {
   const from = fromISO(initial.checkin);
   const to = fromISO(initial.checkout);
   const dates = from && to ? `${shortDate(from)} – ${shortDate(to)}` : null;
@@ -265,12 +334,13 @@ export function CompactSearch({ initial = {}, onOpen }: { initial?: SearchInitia
     infants: initial.infants ?? 0,
     pets: initial.pets ?? 0,
   });
+  const third = mode === "services" ? (serviceLabel(initial.service) ?? null) : guests;
   const seg = "h-full truncate px-4 text-sm font-medium outline-none focus-visible:underline";
 
   return (
     <div
       role="search"
-      aria-label="Search stays"
+      aria-label={MODE_COPY[mode].label}
       className="kip-fade-in flex h-12 max-w-full items-center rounded-full border border-grey-400 bg-background pl-2 shadow-search transition-shadow duration-200 hover:shadow-elev-2"
     >
       <button type="button" className={cn(seg, "max-w-56 pl-4")} onClick={() => onOpen("where")}>
@@ -281,8 +351,8 @@ export function CompactSearch({ initial = {}, onOpen }: { initial?: SearchInitia
         {dates ?? "Any week"}
       </button>
       <span aria-hidden className="h-6 w-px bg-grey-400" />
-      <button type="button" className={cn(seg, !guests && "font-normal text-muted-foreground")} onClick={() => onOpen("who")}>
-        {guests ?? "Add guests"}
+      <button type="button" className={cn(seg, !third && "font-normal text-muted-foreground")} onClick={() => onOpen("who")}>
+        {third ?? (mode === "services" ? "Add service" : "Add guests")}
       </button>
       <button
         type="button"
@@ -297,23 +367,26 @@ export function CompactSearch({ initial = {}, onOpen }: { initial?: SearchInitia
 }
 
 /** Mobile: a "Start your search" pill that opens a full-height sheet with the same three steps. */
-export function MobileSearch({ initial = {} }: { initial?: SearchInitial }) {
-  const s = useSearchState(initial);
+export function MobileSearch({ initial = {}, mode = "homes" }: { initial?: SearchInitial; mode?: SearchMode }) {
+  const s = useSearchState(initial, mode);
+  const copy = MODE_COPY[mode];
   const [open, setOpen] = useState(false);
-  const hasQuery = s.location || s.datesLabel || guestSummary(s.guests);
+  const third = mode === "services" ? (serviceLabel(s.service) ?? null) : guestSummary(s.guests);
+  const thirdEmpty = mode === "services" ? "Add service" : "Add guests";
+  const hasQuery = s.location || s.datesLabel || third;
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger
         className="flex h-14 w-full items-center justify-center gap-3 rounded-full border border-grey-300 bg-background px-6 shadow-elev-2 press focus-ring"
-        aria-label={hasQuery ? `Open search: ${s.location || "Anywhere"}, ${s.datesLabel ?? "any week"}, ${guestSummary(s.guests) ?? "add guests"}` : "Open search"}
+        aria-label={hasQuery ? `Open search: ${s.location || "Anywhere"}, ${s.datesLabel ?? "any week"}, ${third ?? thirdEmpty.toLowerCase()}` : "Open search"}
       >
         <Search className="size-4 shrink-0" strokeWidth={2.5} />
         {hasQuery ? (
           <span className="min-w-0 text-left">
             <span className="block truncate text-sm font-semibold">{s.location || "Anywhere"}</span>
             <span className="block truncate text-xs text-muted-foreground">
-              {[s.datesLabel ?? "Any week", guestSummary(s.guests) ?? "Add guests"].join(" · ")}
+              {[s.datesLabel ?? "Any week", third ?? thirdEmpty].join(" · ")}
             </span>
           </span>
         ) : (
@@ -322,11 +395,11 @@ export function MobileSearch({ initial = {} }: { initial?: SearchInitial }) {
       </SheetTrigger>
       <SheetContent side="bottom" className="gap-0 overflow-y-auto rounded-t-[32px] bg-grey-100 data-[side=bottom]:h-[94dvh] data-[side=bottom]:animate-[kip-sheet-up_500ms_var(--ease-enter)]">
         <SheetHeader>
-          <SheetTitle>Find a stay</SheetTitle>
+          <SheetTitle>{copy.title}</SheetTitle>
         </SheetHeader>
         <form
           role="search"
-          aria-label="Search stays"
+          aria-label={copy.label}
           className="flex flex-col gap-3 px-4 pb-6"
           onSubmit={(e) => {
             e.preventDefault();
@@ -337,19 +410,27 @@ export function MobileSearch({ initial = {} }: { initial?: SearchInitial }) {
           <section className="rounded-[24px] bg-background p-5 shadow-elev-2">
             <h3 className="mb-3 text-[22px] leading-[26px] font-semibold">Where?</h3>
             <div className="rounded-xl border border-grey-600 px-4 py-3.5 transition-shadow focus-within:border-foreground focus-within:shadow-[inset_0_0_0_1px_#222]">
-              <DestinationInput value={s.location} onChange={s.setLocation} inputClassName="text-sm" inline />
+              <DestinationInput value={s.location} onChange={s.setLocation} inputClassName="text-sm" inline placeholder={copy.where} />
             </div>
           </section>
           <section className="rounded-[24px] bg-background p-5 shadow-elev-2">
             <h3 className="mb-2 text-[22px] leading-[26px] font-semibold">When?</h3>
+            {mode !== "homes" && <ExperienceQuickDates value={s.range} onChange={s.setRange} className="mb-4 grid-cols-3 [&_button]:px-3" />}
             <div className="flex justify-center">
-              <DateRangeCalendar value={s.range} onChange={s.setRange} />
+              <DateRangeCalendar value={s.range} onChange={s.setRange} minNights={mode === "homes" ? 1 : 0} />
             </div>
           </section>
-          <section className="rounded-[24px] bg-background px-5 pt-5 pb-2 shadow-elev-2">
-            <h3 className="text-[22px] leading-[26px] font-semibold">Who?</h3>
-            <GuestPicker value={s.guests} onChange={s.setGuests} />
-          </section>
+          {mode === "services" ? (
+            <section className="rounded-[24px] bg-background p-5 shadow-elev-2">
+              <h3 className="mb-4 text-[22px] leading-[26px] font-semibold">Type of service</h3>
+              <ServiceTypePicker value={s.service} onChange={s.setService} />
+            </section>
+          ) : (
+            <section className="rounded-[24px] bg-background px-5 pt-5 pb-2 shadow-elev-2">
+              <h3 className="text-[22px] leading-[26px] font-semibold">Who?</h3>
+              <GuestPicker value={s.guests} onChange={s.setGuests} allowsPets={mode === "homes"} />
+            </section>
+          )}
           <div className="sticky bottom-0 -mx-4 flex items-center justify-between border-t bg-background px-6 pt-3 pb-1">
             <Button type="button" variant="link" className="px-0 font-semibold text-foreground underline" onClick={s.clear}>
               Clear all

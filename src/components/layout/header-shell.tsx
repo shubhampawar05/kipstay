@@ -7,7 +7,10 @@ import { Logo } from "@/components/brand/logo";
 import type { SearchPanel } from "@/components/search/search-bar";
 import { cn } from "@/lib/utils";
 import { HeaderBigSearch, HeaderCompactSearch, HeaderMobileSearch } from "./header-search";
+import { PRODUCT_TAB_PATHS, ProductTabs } from "./product-tabs";
 import { UserMenu, type MenuUser } from "./user-menu";
+import { searchModeLabel } from "@/components/search/search-bar";
+import { searchModeFor } from "@/lib/search-url";
 
 const NO_SEARCH = ["/login", "/signup", "/host", "/book", "/account"];
 
@@ -42,25 +45,29 @@ function useHiddenUnderHeader(target: React.RefObject<HTMLElement | null>, enabl
 /**
  * Header behaviour measured on the reference:
  * - 80px tall (96px from 1440px), inline padding 24 / 32 (≥950) / 48 (≥1440), sticky. The bar's height never changes.
- * - Home: a white→#F8F8F8 band with the big search sits in the page flow below the bar and scrolls away under it;
+ * - Tab pages (All, Homes, Experiences, Services): a white→#F8F8F8 band with the big search sits in the page flow below the bar and scrolls away under it;
  *   once the big pill is under the bar, the compact pill fades in.
  * - Other pages: compact pill; clicking a segment expands the full search over a dimmed page.
+ * - Tab pages (/, /homes, /experiences, /services): the All/Homes/Experiences/Services tabs sit in the bar's centre and
+ *   crossfade with the compact pill in the same grid cell, so the swap never changes the bar's height.
  */
 export function HeaderShell({ user }: { user: MenuUser }) {
   const pathname = usePathname();
   const scrolled = useScrolled();
   const [forced, setForced] = useState<{ panel: SearchPanel; path: string } | null>(null);
   const showSearch = !NO_SEARCH.some((p) => pathname.startsWith(p));
-  const isHome = pathname === "/";
+  const isTabPage = PRODUCT_TAB_PATHS.includes(pathname);
   const hosting = pathname.startsWith("/host");
   const isListing = pathname.startsWith("/rooms/");
-  const hasBand = showSearch && isHome;
+  // Every tab page has the big search band (reference: same pill on All, Homes, Experiences and Services).
+  const hasBand = showSearch && isTabPage;
   const bigPill = useRef<HTMLDivElement>(null);
   const bandHidden = useHiddenUnderHeader(bigPill, hasBand);
   // A forced expansion belongs to the page (and, on home, the scrolled state) it was opened in.
   const forcedPanel = forced && forced.path === pathname && (!hasBand || bandHidden) ? forced.panel : null;
   const overlayOpen = showSearch && forcedPanel !== null;
   const compactVisible = showSearch && !overlayOpen && (!hasBand || bandHidden);
+  const tabsVisible = isTabPage && !overlayOpen && !compactVisible;
   const elevated = hasBand ? bandHidden : scrolled;
 
   useEffect(() => {
@@ -93,7 +100,7 @@ export function HeaderShell({ user }: { user: MenuUser }) {
         )}
       >
         {/* Phones: just the search pill, as on the reference. Listing pages go edge to edge with their own back bar. */}
-        <div className={cn("flex items-center gap-3 py-3.5 md:hidden", rowPadding, !showSearch && "py-3", isListing && "hidden")}>
+        <div className={cn("flex items-center gap-3 py-3.5 md:hidden", rowPadding, !showSearch && "py-3", isListing && "hidden", isTabPage && "pb-2")}>
           {showSearch ? (
             <Suspense fallback={<div className="kip-shimmer h-14 w-full rounded-full" />}>
               <HeaderMobileSearch pathname={pathname} />
@@ -102,19 +109,36 @@ export function HeaderShell({ user }: { user: MenuUser }) {
             <Logo />
           )}
         </div>
+        {isTabPage && (
+          <div className={cn("md:hidden", rowPadding)}>
+            <ProductTabs pathname={pathname} variant="mobile" />
+          </div>
+        )}
 
         <div className={cn("relative mx-auto hidden h-20 max-w-[1920px] items-center justify-between gap-4 md:flex min-[1440px]:h-24", rowPadding)}>
           <div className="flex flex-1 items-center">
             <Logo />
           </div>
-          <div className="relative flex min-w-0 shrink justify-center">
+          <div className="relative grid min-w-0 shrink justify-items-center [grid-template-areas:'stack'] *:[grid-area:stack]">
+            {isTabPage && (
+              <div
+                inert={!tabsVisible}
+                aria-hidden={!tabsVisible}
+                className={cn(
+                  "self-end transition-[opacity,transform] duration-250 ease-standard min-[1440px]:pb-2",
+                  tabsVisible ? "opacity-100" : "pointer-events-none -translate-y-2 scale-95 opacity-0",
+                )}
+              >
+                <ProductTabs pathname={pathname} />
+              </div>
+            )}
             {showSearch && (
               // Always mounted on search pages, so showing it is a crossfade rather than a mount that pops in.
               <div
                 inert={!compactVisible}
                 aria-hidden={!compactVisible}
                 className={cn(
-                  "transition-[opacity,transform] duration-250 ease-standard",
+                  "self-center transition-[opacity,transform] duration-250 ease-standard",
                   compactVisible ? "opacity-100" : "pointer-events-none translate-y-2 scale-95 opacity-0",
                 )}
               >
@@ -124,7 +148,7 @@ export function HeaderShell({ user }: { user: MenuUser }) {
               </div>
             )}
             {overlayOpen && (
-              <span className="kip-fade-in absolute inset-0 grid place-items-center text-base font-medium whitespace-nowrap">Search stays</span>
+              <span className="kip-fade-in absolute inset-0 grid place-items-center text-base font-medium whitespace-nowrap">{searchModeLabel(searchModeFor(pathname))}</span>
             )}
           </div>
           <nav aria-label="Account" className="flex flex-1 items-center justify-end gap-2">

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AMENITIES, MAX_GUESTS } from "./constants";
+import { AMENITIES, MAX_GUESTS, SERVICE_TYPES } from "./constants";
 import { parseISODate } from "./dates";
 
 const optionalString = z
@@ -79,6 +79,27 @@ export const searchParamsSchema = z
   });
 
 export type SearchFilters = z.infer<typeof searchParamsSchema>;
+
+/**
+ * Query on the Experiences and Services tabs (/experiences?location=&checkin=&… , /services?…&service=). Those
+ * products are coming soon, so the page only echoes the search back; a one-day range (checkin = checkout) is valid.
+ */
+export const productSearchSchema = z
+  .object({
+    location: optionalString.catch(undefined),
+    checkin: isoDate.catch(undefined),
+    checkout: isoDate.catch(undefined),
+    adults: guests.adults,
+    children: guests.children,
+    infants: guests.infants,
+    service: z.enum(SERVICE_TYPES.map((t) => t.value) as [string, ...string[]]).optional().catch(undefined),
+  })
+  .transform((s) => {
+    const datesValid = s.checkin && s.checkout && s.checkout >= s.checkin;
+    return { ...normaliseGuests({ ...s, pets: 0 }), checkin: datesValid ? s.checkin : undefined, checkout: datesValid ? s.checkout : undefined };
+  });
+
+export type ProductSearch = z.infer<typeof productSearchSchema>;
 
 export const signupSchema = z.object({
   name: z.string().trim().min(2, "Enter your name").max(80),

@@ -2,13 +2,16 @@
 
 import { useSearchParams } from "next/navigation";
 import { CompactSearch, MobileSearch, SearchBar, type SearchInitial, type SearchPanel } from "@/components/search/search-bar";
+import { searchModeFor } from "@/lib/search-url";
 
 export function useSearchInitial(pathname: string): { initial: SearchInitial; key: string } {
   const params = useSearchParams();
   const num = (k: string) => Number(params.get(k)) || 0;
   return {
     initial: {
-      location: pathname === "/s" ? (params.get("location") ?? "") : "",
+      // The results page and the experiences / services tabs keep the searched place in the URL.
+      location: ["/s", "/experiences", "/services"].includes(pathname) ? (params.get("location") ?? "") : "",
+      service: pathname === "/services" ? (params.get("service") ?? undefined) : undefined,
       checkin: params.get("checkin") ?? undefined,
       checkout: params.get("checkout") ?? undefined,
       adults: num("adults"),
@@ -34,15 +37,24 @@ export function HeaderBigSearch({
   collapsed?: boolean;
 }) {
   const { initial, key } = useSearchInitial(pathname);
-  return <SearchBar key={key + (initialPanel ?? "")} initial={initial} initialPanel={initialPanel} onSubmitted={onSubmitted} collapsed={collapsed} />;
+  return (
+    <SearchBar
+      key={key + (initialPanel ?? "")}
+      mode={searchModeFor(pathname)}
+      initial={initial}
+      initialPanel={initialPanel}
+      onSubmitted={onSubmitted}
+      collapsed={collapsed}
+    />
+  );
 }
 
 export function HeaderCompactSearch({ pathname, onOpen }: { pathname: string; onOpen: (panel: SearchPanel) => void }) {
   const { initial } = useSearchInitial(pathname);
-  return <CompactSearch initial={initial} onOpen={onOpen} />;
+  return <CompactSearch mode={searchModeFor(pathname)} initial={initial} onOpen={onOpen} />;
 }
 
 export function HeaderMobileSearch({ pathname }: { pathname: string }) {
   const { initial, key } = useSearchInitial(pathname);
-  return <MobileSearch key={key} initial={initial} />;
+  return <MobileSearch key={key} mode={searchModeFor(pathname)} initial={initial} />;
 }
