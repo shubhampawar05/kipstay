@@ -11,6 +11,7 @@ import { PriceBreakdown } from "@/components/listings/price-breakdown";
 import { Badge } from "@/components/ui/badge";
 import { CancelButton } from "./cancel-button";
 import { ReviewForm } from "./review-form";
+import { rawImage } from "@/lib/photos";
 
 export const metadata: Metadata = { title: "Reservation" };
 
@@ -55,7 +56,7 @@ export default async function TripPage({ params, searchParams }: PageProps<"/tri
       </p>
 
       <div className="relative mt-6 aspect-[16/7] overflow-hidden rounded-2xl bg-muted">
-        <Image src={booking.listing.images[0]} alt="" fill unoptimized className="object-cover" />
+        <Image src={booking.listing.images[0]} alt="" fill unoptimized={rawImage(booking.listing.images[0])} className="object-cover" />
       </div>
 
       <div className="mt-8 grid gap-10 md:grid-cols-2">

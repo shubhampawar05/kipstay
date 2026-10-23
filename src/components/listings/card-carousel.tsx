@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { rawImage } from "@/lib/photos";
 
 // Reference photo arrows: 32px white circles that fade in on card hover (200ms) with press feedback.
 const arrow =
@@ -76,7 +77,7 @@ export function CardCarousel({
               src={src}
               alt={i === index ? `${title}, photo ${i + 1} of ${count}` : ""}
               fill
-              unoptimized
+              unoptimized={rawImage(src)}
               priority={priority && i === 0}
               loading={priority && i === 0 ? undefined : "lazy"}
               sizes="(max-width: 744px) 50vw, (max-width: 1440px) 25vw, 15vw"

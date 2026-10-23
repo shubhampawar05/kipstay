@@ -1,9 +1,15 @@
 /* Seeds Kipstay with fictional users, listings, reviews and bookings.
- * Every person, listing name and review here is invented. Run: npm run db:seed */
+ * Every person, listing name and review here is invented; cities are real places. Photos come from Wikimedia Commons
+ * under CC0 / public-domain / CC BY / CC BY-SA licences (public/images/photos/credits.json, shown at /credits).
+ * The hand-written anchors below are relied on by the e2e tests; ~280 more listings are generated deterministically
+ * from prisma/seed-data. Run: npm run db:seed */
 import { PrismaClient, type Category, type PropertyType, type CancellationPolicy } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { calculateQuote } from "../src/lib/pricing";
 import { addDays, todayUTC } from "../src/lib/dates";
+import { PLACES } from "./seed-data/places";
+import { createRng, generateForPlace, hostBio, makePeople, reviewText, score, type GeneratedListing } from "./seed-data/generate";
+import { listingPhotos } from "./seed-data/photos";
 
 const prisma = new PrismaClient();
 const password = process.env.SEED_DEMO_PASSWORD;
@@ -29,16 +35,6 @@ type Seed = {
   policy?: CancellationPolicy;
   amenities: string[];
   blurb: string;
-};
-
-const SCENE: Record<Category, string> = {
-  BEACH: "beach",
-  MOUNTAINS: "mountains",
-  CITY: "city",
-  COUNTRYSIDE: "countryside",
-  LAKEFRONT: "lakefront",
-  DESERT: "desert",
-  TROPICAL: "tropical",
 };
 
 const listings: Seed[] = [
@@ -70,77 +66,14 @@ const listings: Seed[] = [
   { title: "Joshua Tree Star House", city: "Joshua Tree", region: "California", country: "United States", lat: 34.13, lng: -116.31, category: "DESERT", type: "HOUSE", guests: 4, bedrooms: 2, beds: 2, baths: 2, price: 225, cleaning: 70, minNights: 2, pets: true, amenities: ["Wifi", "Hot tub", "Air conditioning", "Kitchen", "Free parking", "EV charger", "Smoke alarm"], blurb: "A low adobe house among boulders, with a cowboy tub and a telescope on the roof." },
 ];
 
-
-// Extra fictional stays per city so every home-page row can fill a 7-card carousel.
-const NEIGHBOURHOODS: Record<string, string[]> = {
-  Lisbon: ["Príncipe Real", "Belém", "Graça", "Cascais Coast"],
-  Kyoto: ["Higashiyama", "Nishiki", "Ohara Valley", "Fushimi"],
-  Banff: ["Tunnel Mountain", "Canmore Ridge", "Spray Valley"],
-  "Lake Tahoe": ["Kings Beach", "Tahoe City", "South Shore"],
-  Asheville: ["River Arts", "Weaverville", "Black Mountain"],
-  Tulum: ["Aldea Zamá", "La Veleta", "Playa Paraíso"],
-  Santorini: ["Imerovigli", "Firostefani", "Pyrgos"],
-  Marrakech: ["Mouassine", "Palmeraie", "Kasbah"],
-  Reykjavik: ["Vesturbær", "Hlíðar", "Grótta"],
-  "Cape Town": ["Bo-Kaap", "Constantia", "Muizenberg"],
-  Goa: ["Assagao Hills", "Candolim", "Agonda"],
-  Bled: ["Zasip", "Bohinj Edge"],
-  "Joshua Tree": ["Yucca Mesa", "Pioneertown"],
-};
-const ADJECTIVES = ["Sunlit", "Quiet", "Garden", "Hillside", "Modern", "Hidden", "Breezy", "Artist's", "Courtyard", "Panorama"];
-const TYPE_WORD: Record<PropertyType, string> = {
-  APARTMENT: "Apartment",
-  HOUSE: "House",
-  CABIN: "Cabin",
-  VILLA: "Villa",
-  COTTAGE: "Cottage",
-  LOFT: "Loft",
-  TINY_HOME: "Hideaway",
-};
-const baseCount = listings.length;
-for (let i = 0; i < baseCount; i++) {
-  const base = listings[i];
-  const hoods = NEIGHBOURHOODS[base.city] ?? [];
-  const extra = hoods.filter((_, j) => (i + j) % 2 === 0 || hoods.length <= 3).slice(0, 3);
-  extra.forEach((hood, j) => {
-    const scale = 0.75 + ((i * 7 + j * 13) % 9) / 10; // 0.75–1.55
-    listings.push({
-      ...base,
-      title: `${ADJECTIVES[(i + j * 3) % ADJECTIVES.length]} ${TYPE_WORD[base.type]} in ${hood}`,
-      lat: base.lat + (j + 1) * 0.011,
-      lng: base.lng - (j + 1) * 0.013,
-      price: Math.max(40, Math.round((base.price * scale) / 5) * 5),
-      cleaning: Math.round(base.cleaning * scale),
-      guests: Math.max(2, base.guests + ((j % 3) - 1) * 2),
-      bedrooms: Math.max(1, base.bedrooms + ((j % 3) - 1)),
-      beds: Math.max(1, base.beds + ((j % 3) - 1)),
-      blurb: `${base.blurb} Tucked away in ${hood}, it's a calm base with easy access to the best of ${base.city}.`,
-    });
-  });
-}
-
-const reviewers = [
-  { name: "Maya Okafor", email: "maya@kipstay.test" },
-  { name: "Lucas Brandt", email: "lucas@kipstay.test" },
-  { name: "Priya Raman", email: "priya@kipstay.test" },
-  { name: "Tomás Herrera", email: "tomas@kipstay.test" },
-  { name: "Aiko Tanaka", email: "aiko@kipstay.test" },
-  { name: "Noor Haddad", email: "noor@kipstay.test" },
-];
-
-const reviewTexts = [
-  "Spotless, quiet and exactly like the photos. The host had thought of every little detail.",
-  "Great location and a really comfortable bed. Check-in was easy and communication was quick.",
-  "We loved the views and the kitchen was well stocked. Would happily stay again.",
-  "A calm, beautiful place to recharge. A couple of minor quirks but nothing that mattered.",
-  "Perfect for our family trip. Plenty of space and the kids didn't want to leave.",
-  "Lovely stay. The neighbourhood has great food within walking distance.",
-  "The host's local tips made our trip. Clean, cosy and very well maintained.",
-];
-
 const CATEGORY_KEYS = ["cleanliness", "accuracy", "checkIn", "communication", "location", "value"] as const;
+const BOOKING_NOTE = ["Family visiting", "Maintenance", "Owner's stay", "Deep clean"];
+
+type Row = GeneratedListing & { hostId: string };
 
 async function main() {
+  const rng = createRng(20261023);
+
   console.log("Clearing existing data…");
   await prisma.$transaction([
     prisma.message.deleteMany(),
@@ -161,19 +94,44 @@ async function main() {
     prisma.user.create({ data: { name: "Daniel Mbeki", email: "host2@kipstay.test", passwordHash, isHost: true, bio: "Outdoor guide and coffee enthusiast. Happy to help plan your hikes." } }),
     prisma.user.create({ data: { name: "Sam Rivera", email: "guest@kipstay.test", passwordHash } }),
   ]);
-  const reviewerUsers = await Promise.all(reviewers.map((r) => prisma.user.create({ data: { ...r, passwordHash } })));
+  const usedNames = new Set(["Ines Carvalho", "Daniel Mbeki", "Sam Rivera"]);
+  const reviewers = await prisma.user.createManyAndReturn({
+    data: makePeople(rng, 90, usedNames).map((p) => ({ ...p, passwordHash })),
+  });
+  const hosts = await prisma.user.createManyAndReturn({
+    data: makePeople(rng, 36, usedNames).map((p) => ({ ...p, passwordHash, isHost: true, bio: hostBio(rng) })),
+  });
+  const hostById = new Map([host, host2, ...hosts].map((u) => [u.id, u]));
+
+  // Anchors keep their demo hosts; generated listings go to the generated hosts, a few per city.
+  const rows: Row[] = listings.map((s, i) => ({
+    ...s,
+    minNights: s.minNights ?? 1,
+    pets: s.pets ?? false,
+    policy: s.policy ?? "FLEXIBLE",
+    description: `${s.blurb}\n\nThe space has ${s.bedrooms === 0 ? "an open-plan studio" : `${s.bedrooms} bedroom${s.bedrooms > 1 ? "s" : ""}`} and sleeps up to ${s.guests}. You'll have the whole place to yourself, with fresh linens, towels and the essentials ready on arrival.\n\nThe neighbourhood is great for exploring on foot, and we're always a message away if you need recommendations.`,
+    houseRules: "No parties or events.\nQuiet hours after 22:00.\nNo smoking indoors.",
+    checkInTime: "15:00",
+    checkOutTime: "11:00",
+    quality: 4.75 + rng.next() * 0.25,
+    reviews: 3 + (i % 6),
+    hostId: (i + 1) % 3 === 0 ? host2.id : host.id,
+  }));
+  const anchorMax = new Map<string, number>();
+  for (const s of listings) anchorMax.set(s.city, Math.max(anchorMax.get(s.city) ?? 0, s.price));
+  PLACES.forEach((place, p) => {
+    const cityHosts = rng.sample(hosts, 3);
+    generateForPlace(rng, place, anchorMax.get(place.city)).forEach((g, i) => rows.push({ ...g, hostId: cityHosts[(p + i) % cityHosts.length].id }));
+  });
 
   const today = todayUTC();
-  let index = 0;
-  for (const s of listings) {
-    index++;
-    const scene = SCENE[s.category];
-    const v = ((index - 1) % 4) + 1;
+  let reviewTotal = 0;
+  for (const [index, s] of rows.entries()) {
     const listing = await prisma.listing.create({
       data: {
-        hostId: index % 3 === 0 ? host2.id : host.id,
+        hostId: s.hostId,
         title: s.title,
-        description: `${s.blurb}\n\nThe space has ${s.bedrooms === 0 ? "an open-plan studio" : `${s.bedrooms} bedroom${s.bedrooms > 1 ? "s" : ""}`} and sleeps up to ${s.guests}. You'll have the whole place to yourself, with fresh linens, towels and the essentials ready on arrival.\n\nThe neighbourhood is great for exploring on foot, and we're always a message away if you need recommendations.`,
+        description: s.description,
         propertyType: s.type,
         category: s.category,
         city: s.city,
@@ -187,68 +145,93 @@ async function main() {
         bathrooms: s.baths,
         pricePerNight: s.price * 100,
         cleaningFee: s.cleaning * 100,
-        minNights: s.minNights ?? 1,
-        allowsPets: s.pets ?? false,
+        minNights: s.minNights,
+        allowsPets: s.pets,
         amenities: s.amenities,
-        images: [
-          `/images/listings/${scene}-${v}.svg`,
-          `/images/listings/bedroom-${((index + 0) % 4) + 1}.svg`,
-          `/images/listings/living-${((index + 1) % 4) + 1}.svg`,
-          `/images/listings/kitchen-${((index + 2) % 4) + 1}.svg`,
-          `/images/listings/bathroom-${((index + 3) % 4) + 1}.svg`,
-          `/images/listings/${scene}-${(v % 4) + 1}.svg`,
-        ],
-        houseRules: "No parties or events.\nQuiet hours after 22:00.\nNo smoking indoors.",
-        cancellationPolicy: s.policy ?? "FLEXIBLE",
+        images: listingPhotos(rng, s.category, s.bedrooms, s.amenities.includes("Kitchen")),
+        houseRules: s.houseRules,
+        checkInTime: s.checkInTime,
+        checkOutTime: s.checkOutTime,
+        cancellationPolicy: s.policy,
+        // Spread "created" dates over two years so "New" and sort-by-date look natural.
+        createdAt: addDays(today, -rng.int(20, 720)),
       },
     });
 
-    // Past stays with reviews (2–5 per listing), each tied to a completed booking.
-    const reviewCount = 2 + (index % 4);
-    for (let r = 0; r < reviewCount; r++) {
-      const author = reviewerUsers[(index + r) % reviewerUsers.length];
-      const nights = Math.max(listing.minNights, 2 + (r % 3));
-      const checkIn = addDays(today, -30 * (r + 1) - index);
-      const checkOut = addDays(checkIn, nights);
-      const q = calculateQuote(listing, checkIn, checkOut);
-      const booking = await prisma.booking.create({
-        data: { listingId: listing.id, guestId: author.id, checkIn, checkOut, adults: 2, nights: q.nights, nightlyPrice: q.nightlyPrice, subtotal: q.subtotal, discount: q.discount, cleaningFee: q.cleaningFee, serviceFee: q.serviceFee, taxes: q.taxes, total: q.total, paymentRef: `mock_seed_${index}_${r}` },
-      });
-      await prisma.review.create({
-        data: {
+    // Past stays, walking backwards from last week without overlaps; each one is reviewed.
+    const past: { checkIn: Date; checkOut: Date; guestId: string; adults: number }[] = [];
+    let cursor = addDays(today, -rng.int(3, 14));
+    for (let r = 0; r < s.reviews; r++) {
+      const nights = Math.max(s.minNights, rng.int(1, 5));
+      const checkOut = cursor;
+      const checkIn = addDays(checkOut, -nights);
+      past.push({ checkIn, checkOut, guestId: rng.pick(reviewers).id, adults: Math.min(s.guests, rng.int(1, 3)) });
+      cursor = addDays(checkIn, -rng.int(2, 21));
+    }
+
+    // Upcoming stays and the odd host block, so calendars and date searches show real gaps.
+    const upcoming: typeof past = [];
+    const blocks: { listingId: string; startDate: Date; endDate: Date; note: string }[] = [];
+    let ahead = addDays(today, rng.int(4, 20));
+    for (let f = 0, n = rng.int(0, 3); f < n; f++) {
+      const nights = Math.max(s.minNights, rng.int(2, 6));
+      if (rng.chance(0.2)) blocks.push({ listingId: listing.id, startDate: ahead, endDate: addDays(ahead, nights), note: rng.pick(BOOKING_NOTE) });
+      else upcoming.push({ checkIn: ahead, checkOut: addDays(ahead, nights), guestId: rng.pick(reviewers).id, adults: Math.min(s.guests, rng.int(1, 4)) });
+      ahead = addDays(ahead, nights + rng.int(5, 30));
+    }
+
+    const bookings = await prisma.booking.createManyAndReturn({
+      data: [...past, ...upcoming].map((b, j) => {
+        const q = calculateQuote(listing, b.checkIn, b.checkOut);
+        return {
           listingId: listing.id,
-          authorId: author.id,
-          bookingId: booking.id,
-          rating: (index + r) % 5 === 0 ? 4 : 5,
-          // Deterministic category scores, mostly 5 with the odd 4, so listings get distinct breakdowns.
-          ...Object.fromEntries(CATEGORY_KEYS.map((k, c) => [k, (index + r + c) % 7 === 0 ? 4 : 5])),
-          comment: reviewTexts[(index + r) % reviewTexts.length],
-          createdAt: addDays(checkOut, 2),
-        },
-      });
-    }
-
-    // An upcoming stay on most listings, so availability calendars show blocked dates.
-    if (index % 4 !== 0) {
-      const checkIn = addDays(today, 10 + (index % 7) * 3);
-      const checkOut = addDays(checkIn, Math.max(listing.minNights, 3));
-      const q = calculateQuote(listing, checkIn, checkOut);
-      await prisma.booking.create({
-        data: { listingId: listing.id, guestId: reviewerUsers[index % reviewerUsers.length].id, checkIn, checkOut, adults: 2, nights: q.nights, nightlyPrice: q.nightlyPrice, subtotal: q.subtotal, discount: q.discount, cleaningFee: q.cleaningFee, serviceFee: q.serviceFee, taxes: q.taxes, total: q.total, paymentRef: `mock_seed_future_${index}` },
-      });
-    }
-
-    const agg = await prisma.review.aggregate({ where: { listingId: listing.id }, _avg: { rating: true }, _count: { _all: true } });
-    await prisma.listing.update({
-      where: { id: listing.id },
-      data: { avgRating: Math.round((agg._avg.rating ?? 0) * 100) / 100, reviewCount: agg._count._all },
+          guestId: b.guestId,
+          checkIn: b.checkIn,
+          checkOut: b.checkOut,
+          adults: b.adults,
+          nights: q.nights,
+          nightlyPrice: q.nightlyPrice,
+          subtotal: q.subtotal,
+          discount: q.discount,
+          cleaningFee: q.cleaningFee,
+          serviceFee: q.serviceFee,
+          taxes: q.taxes,
+          total: q.total,
+          paymentRef: `mock_seed_${index}_${j}`,
+          createdAt: addDays(b.checkIn, -rng.int(7, 60)),
+        };
+      }),
     });
+    if (blocks.length) await prisma.availabilityBlock.createMany({ data: blocks });
+
+    const hostFirst = hostById.get(s.hostId)!.name.split(" ")[0];
+    const reviews = bookings
+      .filter((b) => b.checkOut <= today)
+      .map((b) => {
+        const rating = score(rng, s.quality);
+        return {
+          listingId: listing.id,
+          authorId: b.guestId,
+          bookingId: b.id,
+          rating,
+          ...Object.fromEntries(CATEGORY_KEYS.map((k) => [k, Math.min(5, Math.max(rating - 1, score(rng, s.quality)))])),
+          comment: reviewText(rng, s.category, hostFirst, rating),
+          createdAt: addDays(b.checkOut, rng.int(1, 6)),
+        };
+      });
+    if (reviews.length) await prisma.review.createMany({ data: reviews });
+    reviewTotal += reviews.length;
+    const avg = reviews.length ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length : 0;
+    await prisma.listing.update({ where: { id: listing.id }, data: { avgRating: Math.round(avg * 100) / 100, reviewCount: reviews.length } });
   }
 
   // The demo guest starts with one upcoming trip and one saved place.
   const first = await prisma.listing.findFirstOrThrow({ where: { title: "Alfama Rooftop Loft" } });
   const checkIn = addDays(today, 45);
   const checkOut = addDays(checkIn, 4);
+  // Clear the window first: generated bookings may already sit there.
+  await prisma.booking.deleteMany({ where: { listingId: first.id, checkIn: { lt: addDays(checkOut, 1) }, checkOut: { gt: addDays(checkIn, -1) }, review: null } });
+  await prisma.availabilityBlock.deleteMany({ where: { listingId: first.id } });
   const q = calculateQuote(first, checkIn, checkOut);
   await prisma.booking.create({
     data: { listingId: first.id, guestId: guest.id, checkIn, checkOut, adults: 2, nights: q.nights, nightlyPrice: q.nightlyPrice, subtotal: q.subtotal, discount: q.discount, cleaningFee: q.cleaningFee, serviceFee: q.serviceFee, taxes: q.taxes, total: q.total, paymentRef: "mock_seed_demo" },
@@ -274,7 +257,7 @@ async function main() {
     },
   });
 
-  console.log(`Seeded ${listings.length} listings, ${3 + reviewers.length} users.`);
+  console.log(`Seeded ${rows.length} listings (${listings.length} hand-written), ${3 + reviewers.length + hosts.length} users, ${reviewTotal} reviews.`);
 }
 
 main()

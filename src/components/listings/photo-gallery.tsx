@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { ShareButton } from "./share-button";
 import { BackButton } from "./back-button";
 import { useStay } from "./stay-context";
+import { rawImage } from "@/lib/photos";
 
 /**
  * Reference photo experience: 1+4 mosaic (radius 12, 8px gaps) → full-page "Photo tour" grouped by room
@@ -55,7 +56,7 @@ export function PhotoGallery({
         <div ref={strip} onScroll={onStripScroll} className="scrollbar-none flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain">
           {images.map((src, i) => (
             <button key={src + i} type="button" className="relative aspect-[4/3] w-full shrink-0 snap-center snap-always" onClick={() => setTourOpen(true)} aria-label={`Open photo tour, photo ${i + 1} of ${images.length}`}>
-              <Image src={src} alt="" fill unoptimized priority={i === 0} loading={i === 0 ? undefined : "lazy"} className="object-cover" sizes="100vw" />
+              <Image src={src} alt="" fill unoptimized={rawImage(src)} priority={i === 0} loading={i === 0 ? undefined : "lazy"} className="object-cover" sizes="100vw" />
             </button>
           ))}
         </div>
@@ -81,7 +82,7 @@ export function PhotoGallery({
             aria-label={`${title}, photo ${i + 1}: open photo tour`}
             className={cn("group relative overflow-hidden bg-grey-200 outline-none focus-visible:z-10 focus-visible:shadow-[inset_0_0_0_3px_#222]", i === 0 && "col-span-2 row-span-2", mosaic.length === 1 && "col-span-4")}
           >
-            <Image src={src} alt="" fill unoptimized priority={i === 0} className="object-cover transition-[filter] duration-200 group-hover:brightness-[0.85]" sizes="50vw" />
+            <Image src={src} alt="" fill unoptimized={rawImage(src)} priority={i === 0} className="object-cover transition-[filter] duration-200 group-hover:brightness-[0.85]" sizes="50vw" />
           </button>
         ))}
         <button
@@ -114,7 +115,7 @@ export function PhotoGallery({
               {groups.map((g) => (
                 <a key={g.label} href={`#tour-${g.label.replace(/\W+/g, "-")}`} className="w-36 shrink-0 rounded-md text-sm focus-ring">
                   <span className="relative block aspect-[3/2] overflow-hidden rounded-md bg-grey-200">
-                    <Image src={g.photos[0].src} alt="" fill unoptimized className="object-cover" sizes="144px" />
+                    <Image src={g.photos[0].src} alt="" fill unoptimized={rawImage(g.photos[0].src)} className="object-cover" sizes="144px" />
                   </span>
                   <span className="mt-2 block">{g.label}</span>
                 </a>
@@ -132,7 +133,7 @@ export function PhotoGallery({
                       aria-label={`View ${g.label} photo ${i + 1} full screen`}
                       className={cn("group relative overflow-hidden bg-grey-200 focus-ring", i % 3 === 0 ? "col-span-2 aspect-[3/2]" : "aspect-square")}
                     >
-                      <Image src={p.src} alt="" fill unoptimized className="object-cover transition-[filter] duration-200 group-hover:brightness-[0.9]" sizes="(max-width: 768px) 100vw, 66vw" />
+                      <Image src={p.src} alt="" fill unoptimized={rawImage(p.src)} className="object-cover transition-[filter] duration-200 group-hover:brightness-[0.9]" sizes="(max-width: 768px) 100vw, 66vw" />
                     </button>
                   ))}
                 </div>
@@ -165,7 +166,7 @@ export function PhotoGallery({
                 {viewer + 1} / {images.length}
               </p>
               <div className="relative h-[78dvh] w-[min(1100px,86vw)]">
-                <Image key={images[viewer]} src={images[viewer]} alt={`${title}, photo ${viewer + 1} of ${images.length}`} fill unoptimized className="kip-fade-in object-contain" sizes="90vw" />
+                <Image key={images[viewer]} src={images[viewer]} alt={`${title}, photo ${viewer + 1} of ${images.length}`} fill unoptimized={rawImage(images[viewer])} className="kip-fade-in object-contain" sizes="90vw" />
               </div>
               <button type="button" aria-label="Previous photo" onClick={() => step(-1)} className="absolute left-6 grid size-12 place-items-center rounded-full border border-white/40 transition-transform hover:scale-[1.04] hover:border-white active:scale-[0.96] focus-ring">
                 <ChevronLeft />

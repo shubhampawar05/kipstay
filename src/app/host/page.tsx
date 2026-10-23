@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { ListingRowActions } from "./listing-row-actions";
 import { CancelButton } from "@/app/trips/[id]/cancel-button";
+import { rawImage } from "@/lib/photos";
 
 export const metadata: Metadata = { title: "Host dashboard" };
 
@@ -149,7 +150,7 @@ async function HostDashboard({ user, notice }: { user: CurrentUser; notice: stri
           {listings.map((l) => (
             <li key={l.id} className="flex flex-wrap items-center gap-4 p-4" data-testid="host-listing-row">
               <div className="relative size-20 shrink-0 overflow-hidden rounded-xl bg-muted">
-                <Image src={l.images[0]} alt="" fill unoptimized className="object-cover" />
+                <Image src={l.images[0]} alt="" fill unoptimized={rawImage(l.images[0])} className="object-cover" />
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate font-semibold">{l.title}</p>

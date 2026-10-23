@@ -100,6 +100,10 @@ export async function SiteFooter() {
             © {new Date().getFullYear()} Kipstay (demo) · <Link href="/help#about" className="hover:underline">About</Link> ·{" "}
             <Link href="/help#pricing" className="hover:underline">
               Pricing
+            </Link>{" "}
+            ·{" "}
+            <Link href="/credits" className="hover:underline">
+              Photo credits
             </Link>
           </p>
           <p className="font-medium">English (US) · $ USD · Payments are simulated</p>

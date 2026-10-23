@@ -12,6 +12,7 @@ import { EmptyState } from "@/components/empty-state";
 import { PageSkeleton } from "@/components/skeletons";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
+import { rawImage } from "@/lib/photos";
 
 export const metadata: Metadata = { title: "Trips" };
 
@@ -72,7 +73,7 @@ async function TripsList({ userId }: { userId: string }) {
               <Reveal as="li" key={b.id} index={i % 3}>
                 <Link href={`/trips/${b.id}`} className="flex gap-4 rounded-2xl border border-grey-400 p-3 shadow-elev-1 transition-shadow duration-200 hover:shadow-elev-2 focus-ring" data-testid="trip-card">
                   <div className="relative size-24 shrink-0 overflow-hidden rounded-xl bg-muted">
-                    <Image src={b.listing.images[0]} alt="" fill unoptimized className="object-cover" />
+                    <Image src={b.listing.images[0]} alt="" fill unoptimized={rawImage(b.listing.images[0])} className="object-cover" />
                   </div>
                   <div className="min-w-0 py-1">
                     <p className="truncate font-semibold">{b.listing.title}</p>

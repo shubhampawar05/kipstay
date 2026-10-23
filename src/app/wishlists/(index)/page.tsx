@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { Reveal } from "@/components/motion/reveal";
 import { EmptyState } from "@/components/empty-state";
 import { buttonVariants } from "@/components/ui/button";
+import { rawImage } from "@/lib/photos";
 
 export const metadata: Metadata = { title: "Wishlists" };
 
@@ -97,7 +98,7 @@ function WishlistTile({ id, name, count, covers }: { id: string; name: string; c
                 src={src}
                 alt=""
                 fill
-                unoptimized
+                unoptimized={rawImage(src)}
                 className="object-cover transition-transform duration-500 ease-standard group-hover:scale-[1.04]"
                 sizes="240px"
               />

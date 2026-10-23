@@ -3,12 +3,20 @@ import Link from "next/link";
 import type { Category } from "@prisma/client";
 import { CATEGORIES } from "@/lib/constants";
 import { ListingRow } from "@/components/listings/listing-row";
+import { rawImage } from "@/lib/photos";
 
 /**
  * Picture tiles that open a category search, modelled on the reference's "Explore experiences nearby" row:
  * 20:19 artwork with rounded corners and a 14px label underneath, carousel buttons only when the row overflows.
  */
-export function CategoryTiles({ counts }: { counts: Partial<Record<Category, number>> }) {
+export function CategoryTiles({
+  counts,
+  covers = {},
+}: {
+  counts: Partial<Record<Category, number>>;
+  /** Cover photo per category; the bundled artwork stands in when a category has none. */
+  covers?: Partial<Record<Category, string>>;
+}) {
   const categories = CATEGORIES.filter((c) => (counts[c.value] ?? 0) > 0);
   if (categories.length === 0) return null;
 
@@ -16,6 +24,7 @@ export function CategoryTiles({ counts }: { counts: Partial<Record<Category, num
     <ListingRow title="Explore stays by category" href="/s" controls="fit">
       {categories.map((c, i) => {
         const count = counts[c.value] ?? 0;
+        const cover = covers[c.value] ?? `/images/listings/${c.value.toLowerCase()}-${(i % 4) + 1}.svg`;
         return (
           <Link
             key={c.value}
@@ -25,11 +34,12 @@ export function CategoryTiles({ counts }: { counts: Partial<Record<Category, num
           >
             <span className="block overflow-hidden rounded-2xl bg-grey-200">
               <Image
-                src={`/images/listings/${c.value.toLowerCase()}-${(i % 4) + 1}.svg`}
+                src={cover}
                 alt=""
                 width={400}
                 height={380}
-                unoptimized
+                unoptimized={rawImage(cover)}
+                sizes="(max-width: 744px) 45vw, 15vw"
                 priority={i < 4}
                 className="aspect-[20/19] w-full object-cover transition-transform duration-500 ease-standard group-hover/tile:scale-[1.04] motion-reduce:transition-none"
               />

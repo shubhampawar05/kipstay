@@ -7,6 +7,7 @@ import { requireUser } from "@/lib/auth";
 import { listInbox, MESSAGE_MAX, openConversation } from "@/lib/messages";
 import { InboxList } from "@/components/messages/inbox-list";
 import { MessageThread } from "@/components/messages/message-thread";
+import { rawImage } from "@/lib/photos";
 
 export const metadata: Metadata = { title: "Messages" };
 
@@ -37,7 +38,7 @@ export default async function ConversationPage({ params }: PageProps<"/messages/
               <ChevronLeft className="size-5" />
             </Link>
             <span className="relative size-10 shrink-0 overflow-hidden rounded-lg bg-grey-200">
-              {listing.images[0] && <Image src={listing.images[0]} alt="" fill unoptimized className="object-cover" sizes="40px" />}
+              {listing.images[0] && <Image src={listing.images[0]} alt="" fill unoptimized={rawImage(listing.images[0])} className="object-cover" sizes="40px" />}
             </span>
             <div className="min-w-0">
               <h2 id="thread-heading" className="truncate font-semibold">

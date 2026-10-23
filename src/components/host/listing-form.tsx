@@ -147,7 +147,7 @@ export function ListingForm({ action, listing, submitLabel }: { action: Action; 
             className="font-mono text-xs"
             aria-invalid={!!e.images}
           />,
-          "One per line, up to 12. Use https:// image URLs or the bundled /images/listings/… artwork. File upload isn't available in this build.",
+          "One per line, up to 12. Use https:// image URLs or the bundled /images/photos/… library. File upload isn't available in this build.",
         )}
       </section>
 

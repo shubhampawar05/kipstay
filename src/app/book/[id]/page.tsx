@@ -12,6 +12,7 @@ import { PriceBreakdown } from "@/components/listings/price-breakdown";
 import { EmptyState } from "@/components/empty-state";
 import { buttonVariants } from "@/components/ui/button";
 import { ReserveForm } from "./reserve-form";
+import { rawImage } from "@/lib/photos";
 
 export const metadata: Metadata = { title: "Confirm and pay" };
 
@@ -83,7 +84,7 @@ export default async function BookPage({ params, searchParams }: PageProps<"/boo
         <aside className="h-fit rounded-xl border border-grey-400 p-6 shadow-elev-2 md:sticky md:top-28" aria-label="Price summary">
           <div className="flex gap-4">
             <div className="relative size-28 shrink-0 overflow-hidden rounded-xl bg-muted">
-              <Image src={listing.images[0]} alt="" fill unoptimized className="object-cover" />
+              <Image src={listing.images[0]} alt="" fill unoptimized={rawImage(listing.images[0])} className="object-cover" />
             </div>
             <div className="min-w-0">
               <p className="truncate font-semibold">{listing.title}</p>

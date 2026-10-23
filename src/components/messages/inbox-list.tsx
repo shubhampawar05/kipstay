@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { InboxItem } from "@/lib/messages";
 import { cn } from "@/lib/utils";
+import { rawImage } from "@/lib/photos";
 
 function when(date: Date) {
   const days = Math.floor((Date.now() - date.getTime()) / 86_400_000);
@@ -25,7 +26,7 @@ export function InboxList({ items, activeId }: { items: InboxItem[]; activeId?: 
             )}
           >
             <span className="relative size-12 shrink-0 overflow-hidden rounded-xl bg-grey-200">
-              {c.listingImage && <Image src={c.listingImage} alt="" fill unoptimized className="object-cover" sizes="48px" />}
+              {c.listingImage && <Image src={c.listingImage} alt="" fill unoptimized={rawImage(c.listingImage)} className="object-cover" sizes="48px" />}
             </span>
             <span className="min-w-0 flex-1">
               <span className="flex items-baseline justify-between gap-2">

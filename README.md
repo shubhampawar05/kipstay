@@ -52,11 +52,27 @@ Open http://localhost:3000.
 > npm 11 blocks dependency install scripts until approved. This repo's `package.json` already approves the
 > five that are needed (`prisma`, `@prisma/client`, `@prisma/engines`, `esbuild`, `unrs-resolver`).
 
+### Seed data and photos
+
+`npm run db:seed` builds the same data on every run, from a fixed random seed:
+
+- **310 listings in 32 real destinations** (Lisbon, Kyoto, Banff, New Delhi, Noida, Gurugram, Jaipur, Udaipur, Manali,
+  Munnar, Ubud, Tokyo, Paris, London, Amalfi Coast, Dubai, …). 26 are hand-written anchors in `prisma/seed.ts` (the
+  e2e tests rely on them); the rest come from `prisma/seed-data/` with per-market price ranges, property types,
+  neighbourhoods, amenities, house rules and check-in times.
+- **126 fictional people** (90 guests who write reviews, 36 hosts with bios), about 2,200 reviews with category scores
+  (most stays rate 4.7–5, a few are new with no reviews), past and upcoming bookings, and the odd host-blocked week.
+- **Photos** are real, from Wikimedia Commons under CC0, public-domain, CC BY or CC BY-SA licences, resized into
+  `public/images/photos/<room or scene>/`. Every file's author, licence and source is in
+  `public/images/photos/credits.json` and shown at **/credits** (linked in the footer). If a folder is missing, seeding
+  falls back to the bundled SVG artwork.
+- Nothing is scraped or copied from Airbnb or any other booking site.
+
 ### Demo accounts
 
 `npm run db:seed` resets the database and creates `guest@kipstay.test`, `host@kipstay.test` and `host2@kipstay.test`, plus
-six reviewer accounts. All of them use the password in `SEED_DEMO_PASSWORD` (see `.env.example`). The guest starts with one
-upcoming trip and one saved listing, and the hosts own the 26 seeded listings.
+the generated guests and hosts above. All of them use the password in `SEED_DEMO_PASSWORD` (see `.env.example`). The guest starts with one
+upcoming trip and one saved listing, and the two demo hosts own the 26 hand-written listings.
 
 ## Scripts
 

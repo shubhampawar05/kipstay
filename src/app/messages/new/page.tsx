@@ -7,6 +7,7 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { MESSAGE_MAX } from "@/lib/messages";
 import { NewMessageForm } from "./new-message-form";
+import { rawImage } from "@/lib/photos";
 
 export const metadata: Metadata = { title: "Contact host" };
 
@@ -59,7 +60,7 @@ export default async function NewMessagePage({ searchParams }: PageProps<"/messa
         </div>
         <aside className="h-fit rounded-xl border border-grey-400 p-5 shadow-elev-1">
           <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-grey-200">
-            {listing.images[0] && <Image src={listing.images[0]} alt="" fill unoptimized className="object-cover" sizes="360px" />}
+            {listing.images[0] && <Image src={listing.images[0]} alt="" fill unoptimized={rawImage(listing.images[0])} className="object-cover" sizes="360px" />}
           </div>
           <p className="mt-3 font-semibold">{listing.title}</p>
           <p className="text-sm text-muted-foreground">

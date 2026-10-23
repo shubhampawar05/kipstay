@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { rawImage } from "@/lib/photos";
 
 const NAME_MAX = 50;
 
@@ -187,7 +188,7 @@ export function SaveToWishlistDialog({
                   >
                     <span className="relative block aspect-square overflow-hidden rounded-xl bg-grey-200 shadow-elev-1 transition-transform duration-250 ease-standard group-hover:scale-[1.02] group-active:scale-[0.98]">
                       {l.cover ? (
-                        <Image src={l.cover} alt="" fill unoptimized className="object-cover" sizes="240px" />
+                        <Image src={l.cover} alt="" fill unoptimized={rawImage(l.cover)} className="object-cover" sizes="240px" />
                       ) : (
                         <Heart className="absolute inset-0 m-auto size-8 text-grey-600" aria-hidden />
                       )}

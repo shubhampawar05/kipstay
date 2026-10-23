@@ -38,8 +38,18 @@ async function HomeRows() {
   });
   const weekendCity = topCities[0];
 
-  const [categoryCounts, favourites, weekendRow, cityRows, categoryRows, saved] = await Promise.all([
+  const [categoryCounts, categoryCovers, favourites, weekendRow, cityRows, categoryRows, saved] = await Promise.all([
     prisma.listing.groupBy({ by: ["category"], where: { isPublished: true }, _count: { _all: true } }),
+    // Each tile shows the cover photo of that category's best-rated stay.
+    Promise.all(
+      CATEGORIES.map((c) =>
+        prisma.listing.findFirst({
+          where: { isPublished: true, category: c.value },
+          orderBy: [{ avgRating: "desc" }, { reviewCount: "desc" }],
+          select: { images: true },
+        }),
+      ),
+    ),
     prisma.listing.findMany({
       where: { isPublished: true, reviewCount: { gte: 3 }, avgRating: { gte: 4.9 } },
       select: cardSelect,
@@ -78,7 +88,10 @@ async function HomeRows() {
 
   return (
     <>
-      <CategoryTiles counts={Object.fromEntries(categoryCounts.map((c) => [c.category, c._count._all]))} />
+      <CategoryTiles
+        counts={Object.fromEntries(categoryCounts.map((c) => [c.category, c._count._all]))}
+        covers={Object.fromEntries(CATEGORIES.map((c, i) => [c.value, categoryCovers[i]?.images[0]]))}
+      />
 
       {favourites.length > 0 && (
         <ListingRow title="Guest favourites" subtitle="The highest-rated stays on Kipstay" href="/s?sort=rating">
